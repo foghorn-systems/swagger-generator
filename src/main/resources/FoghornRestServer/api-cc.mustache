@@ -1,0 +1,38 @@
+#include <foghorn/em/api/rest/rest.h>
+#include <foghorn/wire/rest.inl>
+
+namespace foghorn {
+namespace em {
+
+
+{{classVarName}}_rest_handler_t::{{classVarName}}_handler_t(edge::edge_t* edge_):
+   edge(edge_) {
+}
+
+{{classVarName}}s_rest_handler_t::{{classVarName}}s_handler_t(edge::edge_t* edge_):
+   edge(edge_) {
+}
+
+{{#operations}}
+{{#operation}}
+
+// ---------------------------------------------------------------------------
+// REST "{{path}}" {{httpMethod}} handler
+// ---------------------------------------------------------------------------
+void {{classVarName}}{{#vendorExtensions.plural}}s{{/vendorExtensions.plural}}_rest_handler_t::on_{{httpMethod}} (wire::rest::request_t& req) {
+{{#queryParams}}
+  std::string {{paramName}} = req.get_param("{{paramName}}");
+{{/queryParams}}
+{{#pathParams}}
+  std::string {{paramName}} = req.get_param("{{paramName}}");
+{{/pathParams}}
+{{#bodyParams}}
+  // extract {{dataType}} from request body
+{{/bodyParams}}
+}
+
+{{/operation}}
+{{/operations}}
+
+}  // em
+}  // foghorn

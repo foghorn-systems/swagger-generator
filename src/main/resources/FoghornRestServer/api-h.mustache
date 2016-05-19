@@ -1,0 +1,38 @@
+#pragma once
+
+#include <foghorn/wire/rest.h>
+#include <foghorn/em/edge/edge.h>
+
+namespace foghorn {
+namespace em {
+
+class {{classVarName}}s_rest_handler_t : public wire::rest::handler_t {
+  public:
+    {{classVarName}}s_rest_handler_t(edge::edge_t* edge_);
+{{#operations}}
+{{#operation}}
+{{#vendorExtensions.plural}}
+    void on_{{httpMethod}} (wire::rest::request_t& req);
+{{/vendorExtensions.plural}}
+{{/operation}}
+{{/operations}}
+  private:
+    edge::edge_t* edge;
+}
+
+class {{classVarName}}_rest_handler_t : public wire::rest::handler_t {
+  public:
+    {{classVarName}}_rest_handler_t(edge::edge_t* edge_);
+{{#operations}}
+{{#operation}}
+{{^vendorExtensions.plural}}
+    void on_{{httpMethod}} (wire::rest::request_t& req);
+{{/vendorExtensions.plural}}
+{{/operation}}
+{{/operations}}
+  private:
+    edge::edge_t* edge;
+}
+
+}  // em
+}  // foghorn
