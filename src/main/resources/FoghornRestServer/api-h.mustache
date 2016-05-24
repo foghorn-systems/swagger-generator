@@ -1,38 +1,38 @@
 #pragma once
 
-#include <foghorn/wire/rest.h>
-#include <foghorn/em/edge/edge.h>
+include <foghorn/config/config.h>
+include <foghorn/config/controllers.h>
+include <foghorn/em/api/rest/rest.h>
+
+//TODO  indentation
 
 namespace foghorn {
 namespace em {
 
-class {{classVarName}}s_rest_handler_t : public wire::rest::handler_t {
-  public:
-    {{classVarName}}s_rest_handler_t(edge::edge_t* edge_);
-{{#operations}}
-{{#operation}}
-{{#vendorExtensions.plural}}
-    void on_{{httpMethod}} (wire::rest::request_t& req);
-{{/vendorExtensions.plural}}
-{{/operation}}
-{{/operations}}
-  private:
-    edge::edge_t* edge;
-}
+namespace rest = foghorn::wire::rest;
+using Request = foghorn::wire::rest::Request;
+using Response = foghorn::wire::rest::Response;
 
-class {{classVarName}}_rest_handler_t : public wire::rest::handler_t {
+class {{classname}} {
   public:
-    {{classVarName}}_rest_handler_t(edge::edge_t* edge_);
-{{#operations}}
-{{#operation}}
-{{^vendorExtensions.plural}}
-    void on_{{httpMethod}} (wire::rest::request_t& req);
-{{/vendorExtensions.plural}}
-{{/operation}}
-{{/operations}}
+    {{classname}}Api (config::{{baseName}}Controller* controller);
+    void add_handlers (rest::Dispatcher$ rest);
+
+    {{#operations}}
+        {{#operation}}
+            // ---------------------------------------------------------------------------
+            // {{operationId}}
+            // {{httpMethod}}
+            // {{path}}
+            // {{notes}}
+            // ---------------------------------------------------------------------------
+            void {{operationId}} (const Request& req, Response& res);
+        {{/operation}}
+    {{/operations}}
+
   private:
-    edge::edge_t* edge;
-}
+    config::{{baseName}}Controller* controller;
+};
 
 }  // em
 }  // foghorn

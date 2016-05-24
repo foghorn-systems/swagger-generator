@@ -1,38 +1,86 @@
 #include <foghorn/em/api/rest/rest.h>
+#include <foghorn/em/api/rest/topics.h>
+#include <foghorn/config/config.h>
 #include <foghorn/wire/rest.inl>
 
 namespace foghorn {
 namespace em {
 
+using namespace config;
+namespace rest = foghorn::wire::rest;
+using http_status_t = wire::rest::http_status_t;
 
-{{classVarName}}_rest_handler_t::{{classVarName}}_handler_t(edge::edge_t* edge_):
-   edge(edge_) {
-}
-
-{{classVarName}}s_rest_handler_t::{{classVarName}}s_handler_t(edge::edge_t* edge_):
-   edge(edge_) {
-}
-
-{{#operations}}
-{{#operation}}
 
 // ---------------------------------------------------------------------------
-// REST "{{path}}" {{httpMethod}} handler
-// ---------------------------------------------------------------------------
-void {{classVarName}}{{#vendorExtensions.plural}}s{{/vendorExtensions.plural}}_rest_handler_t::on_{{httpMethod}} (wire::rest::request_t& req) {
-{{#queryParams}}
-  std::string {{paramName}} = req.get_param("{{paramName}}");
-{{/queryParams}}
-{{#pathParams}}
-  std::string {{paramName}} = req.get_param("{{paramName}}");
-{{/pathParams}}
-{{#bodyParams}}
-  // extract {{dataType}} from request body
-{{/bodyParams}}
+
+{{classname}}::{{classname}} (config:{{baseName}}Controller* controller_):
+controller(controller_) {}
+
+void {{classname}}::add_handlers (rest::Dispatcher& rest) {
+  {{#operations}}{{#operation}}
+  rest.addHandler("{{path}}", rest::{{httpMethod}}, this, &{{classname}}::{{operationId}});
+  {{/operation}}{{/operations}}
 }
 
-{{/operation}}
-{{/operations}}
+{{#operations}}{{#operation}}
+  // ---------------------------------------------------------------------------
+  // {{operationId}}
+  // {{httpMethod}}
+  // {{path}}
+  // {{notes}}
+  // ---------------------------------------------------------------------------
+  void {{classname}}::{{operationId}} (const Request& req, Response& res) {
+
+    std::cout << "invoking {{operationId}}\n";
+
+    //query params
+    {{#queryParams}} std::string {{paramName}} = "{{defaultValue}}";
+    if (! req.get_param("{{paramName}}").empty()) {
+      {{paramName}} = req.get_param("{{paramName}}");
+    }
+    std::cout << "{{paramName}} query parameter [" << {{paramName}} << "] provided.\n";{{/queryParams}}
+
+    //path params
+    {{#pathParams}} std::string {{paramName}};
+    if (! req.get_param("{{paramName}}").empty()) {
+      {{paramName}} = req.get_param("{{paramName}}");
+    } else {
+      std::cout << "Missing path param [" << e.what() << "]\n";
+      throw new rest::Error(e.what(), http_status_t::bad_request);
+    } 
+    std::cout << "{{paramName}} path parameter [" << {{paramName}} << "] provided.\n"; {{/pathParams}}
+
+    {{#bodyParams}} //body param
+    std::string body = req.get_body();
+    std::cout << "{{operationId}} body: [" << body << "]\n";
+    //Convert the body into Json.
+    Json jsonBody;
+    try {
+      jsonBody = io::txt::from_string
+      <Json>(body);
+    } catch (std::exception& e) {
+      std::cout << "Error reading request body [" << e.what() << "]\n";
+      throw new rest::Error(e.what(), http_status_t::bad_request);
+    }
+
+    //Create a {{dataType}} from Json
+    config::{{dataType}} {{paramName}};
+    {{paramName}}.fromJson(jsonBody);
+    {{/bodyParams}}
+
+    {{#responses}}{{#isDefault}} // response
+    {{#containerType}}std::vector<{{returnBaseType}}*>{{/containerType}} controllerRes;
+    {{^containerType}}{{returnBaseType}}*{{/containerType}} controllerRes;
+    //Call into the controller
+    controllerRes = controller->{{operationId}}({{#allParams}}{{^isPrimitiveType}}{{/isPrimitiveType}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+    //Convert the {{dataType}} to json and return it
+    // expand is hard coded
+    res.set_response(controllerRes->toJson(! expand.empty()));
+    {{/isDefault}}{{/responses}}
+  }
+{{/operation}}{{/operations}}
+
+}
 
 }  // em
 }  // foghorn
