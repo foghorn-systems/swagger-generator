@@ -1,6 +1,7 @@
 package com.foghorn.rest.server;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -8,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 import io.swagger.codegen.CodegenConfig;
-import io.swagger.codegen.CodegenOperation;
 import io.swagger.codegen.CodegenType;
 import io.swagger.codegen.DefaultCodegen;
 import io.swagger.models.properties.ArrayProperty;
@@ -17,8 +17,12 @@ import io.swagger.models.properties.Property;
 
 public class FoghornrestserverGenerator extends DefaultCodegen implements CodegenConfig {
 
+
+    // generation root packages
+    protected String rootGenPackage = "foghorn/em/api/rest/generated";
+
     // source folder where to write the files
-    protected String sourceFolder = "src";
+    protected String sourceFolder = "";
     protected String apiVersion = "1.0.0";
 
     /**
@@ -54,6 +58,16 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     public FoghornrestserverGenerator() {
         super();
 
+        this.typeMapping.clear();
+        this.typeMapping.put("array", "std::vector");
+        this.typeMapping.put("map", "std::map");
+        this.typeMapping.put("boolean", "bool");
+        this.typeMapping.put("string", "std::string");
+        this.typeMapping.put("number", "double");
+        this.typeMapping.put("integer", "int");
+
+        modelNameSuffix = "*";
+
         // set the output folder here
         outputFolder = "generated-code/FoghornRestServer";
 
@@ -63,9 +77,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
          * for multiple files for model, just put another entry in the `modelTemplateFiles` with
          * a different extension
          */
-        modelTemplateFiles.put(
-                "model.mustache", // the template to use
-                ".cc");       // the extension for each file to write
+        modelTemplateFiles.put("model-cc.mustache", ".cc");
+        modelTemplateFiles.put("model-h.mustache", ".h");
 
         /**
          * Api classes.  You can write classes for each Api file with the apiTemplateFiles map.
@@ -84,12 +97,12 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         /**
          * Api Package.  Optional, if needed, this can be used in templates
          */
-        apiPackage = "io.swagger.client.api";
+        apiPackage = "api";
 
         /**
          * Model Package.  Optional, if needed, this can be used in templates
          */
-        modelPackage = "io.swagger.client.model";
+        modelPackage = "model";
 
         /**
          * Reserved words.  Override this with reserved words specific to your language
@@ -130,21 +143,22 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 
     @Override
     public Map<String, Object> postProcessOperations(Map<String, Object> objs) {
-        Map<String, Object> operations = (Map<String, Object>) objs.get("operations");
-        if (operations != null) {
-            List<CodegenOperation> ops = (List<CodegenOperation>) operations.get("operation");
-            for (CodegenOperation operation : ops) {
-                operation.vendorExtensions = new HashMap<String, Object>();
-                operation.vendorExtensions.put("plural", false);
-                // operation is plural for POSTS and GETS on a collection
-                if (operation.httpMethod.toLowerCase().equals("post")) {
-                    operation.vendorExtensions.put("plural", true);
-                } else if (operation.httpMethod.toLowerCase().equals("get") &&
-                                ! operation.path.trim().endsWith("}")) {
-                    operation.vendorExtensions.put("plural", true);
+
+        List<Map<String, String>> imports = (List<Map<String, String>>) objs.get("imports");
+        List<Map<String, String>> modifiedImports = new ArrayList<>();
+        if (imports != null) {
+            for (Map<String, String> importMap : imports) {
+                String importClass = importMap.get("import");
+                if (importClass.endsWith("*")) {
+                    Map<String, String> modifiedImport = new HashMap<>();
+                    modifiedImport.put("importRelative",
+                            this.rootGenPackage + "/" + importClass.replace("*", "").replace(".", "/")
+                    + ".h");
+                    modifiedImports.add(modifiedImport);
                 }
             }
         }
+        objs.put("imports", modifiedImports);
         return objs;
     }
 
@@ -188,7 +202,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         if (p instanceof ArrayProperty) {
             ArrayProperty ap = (ArrayProperty) p;
             Property inner = ap.getItems();
-            return getSwaggerType(p) + "[" + getTypeDeclaration(inner) + "]";
+            return getSwaggerType(p) + "<" + getTypeDeclaration(inner) + ">";
         } else if (p instanceof MapProperty) {
             MapProperty mp = (MapProperty) p;
             Property inner = mp.getAdditionalProperties();
@@ -210,11 +224,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         String swaggerType = super.getSwaggerType(p);
         String type = null;
         if (typeMapping.containsKey(swaggerType)) {
-            type = typeMapping.get(swaggerType);
-            if (languageSpecificPrimitives.contains(type))
-                return toModelName(type);
-        } else
-            type = swaggerType;
-        return toModelName(type);
+            return typeMapping.get(swaggerType);
+        }
+        return toModelName(swaggerType);
     }
 }

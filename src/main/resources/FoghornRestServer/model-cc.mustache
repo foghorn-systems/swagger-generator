@@ -1,0 +1,33 @@
+#pragma once
+
+#include <map>
+#include <vector>
+#include <iostream>
+
+#include <foghorn/wire/json.inl>
+    {{#models}}{{#model}}
+        #include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
+    {{/model}}{{/models}}
+
+namespace foghorn {
+namespace em {
+
+using Json = wire::json_t;
+
+{{#models}}
+{{#model}}
+     {{classFilename}}::{{classFilename}}() {}
+     {{classFilename}}::~{{classFilename}}() {}
+
+     Json {{classFilename}}::toJson(bool expand) {
+  Json::object_t info;
+  info["id"] = Json{ "id" };
+  return Json{ std::move(info) };
+     }
+
+     void {{classFilename}}::fromJson(const Json& j) {}
+
+{{/model}}
+{{/models}}
+    }
+    }

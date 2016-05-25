@@ -1,0 +1,30 @@
+#pragma once
+
+#include <map>
+#include <vector>
+#include <iostream>
+
+#include <foghorn/wire/json.h>
+
+namespace foghorn {
+namespace em {
+
+using Json = wire::json_t;
+
+{{#models}}
+{{#model}}
+class {{classFilename}} {
+  public:
+     {{classFilename}}();
+    ~{{classFilename}}();
+
+     Json toJson(bool expand);
+     void fromJson(const Json& j);
+
+  private:
+     std::string name;
+};
+    }
+    }
+{{/model}}
+{{/models}}

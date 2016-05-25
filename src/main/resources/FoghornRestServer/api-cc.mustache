@@ -1,7 +1,8 @@
 #include <foghorn/em/api/rest/rest.h>
-#include <foghorn/em/api/rest/topics.h>
-#include <foghorn/config/config.h>
 #include <foghorn/wire/rest.inl>
+#include <foghorn/em/api/rest/generated/api/{{classname}}.h>
+
+#include <cstring>
 
 namespace foghorn {
 namespace em {
@@ -13,7 +14,7 @@ using http_status_t = wire::rest::http_status_t;
 
 // ---------------------------------------------------------------------------
 
-{{classname}}::{{classname}} (config:{{baseName}}Controller* controller_):
+{{classname}}::{{classname}} ({{baseName}}Controller* controller_):
 controller(controller_) {}
 
 void {{classname}}::add_handlers (rest::Dispatcher& rest) {
@@ -34,9 +35,18 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
     std::cout << "invoking {{operationId}}\n";
 
     //query params
-    {{#queryParams}} std::string {{paramName}} = "{{defaultValue}}";
+    {{#queryParams}}
+        {{#isBoolean}}
+            std::string default_{{paramName}} = "{{defaultValue}}";
+            {{dataType}} {{paramName}} = (strcasecmp("true",default_{{paramName}}.c_str()) == 0);
+        {{/isBoolean}}
+        {{^isBoolean}}
+            {{dataType}} {{paramName}} = "{{defaultValue}}";
+        {{/isBoolean}}
     if (! req.get_param("{{paramName}}").empty()) {
-      {{paramName}} = req.get_param("{{paramName}}");
+      std::string {{paramName}}Str = req.get_param("{{paramName}}");
+    {{paramName}} = {{#isBoolean}}(strcasecmp("true",{{paramName}}Str.c_str()) == 0);{{/isBoolean}}
+        {{^isBoolean}}{{paramNameStr}};{{/isBoolean}}
     }
     std::cout << "{{paramName}} query parameter [" << {{paramName}} << "] provided.\n";{{/queryParams}}
 
@@ -45,8 +55,8 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
     if (! req.get_param("{{paramName}}").empty()) {
       {{paramName}} = req.get_param("{{paramName}}");
     } else {
-      std::cout << "Missing path param [" << e.what() << "]\n";
-      throw new rest::Error(e.what(), http_status_t::bad_request);
+      std::cout << "Missing path param [ {{paramName}} ]\n";
+      throw new rest::Error("Missing path param [ {{paramName}} ]", http_status_t::bad_request);
     } 
     std::cout << "{{paramName}} path parameter [" << {{paramName}} << "] provided.\n"; {{/pathParams}}
 
@@ -64,23 +74,39 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
     }
 
     //Create a {{dataType}} from Json
-    config::{{dataType}} {{paramName}};
-    {{paramName}}.fromJson(jsonBody);
+    {{dataType}} {{paramName}};
+    {{paramName}}->fromJson(jsonBody);
     {{/bodyParams}}
 
     {{#responses}}{{#isDefault}} // response
-    {{#containerType}}std::vector<{{returnBaseType}}*>{{/containerType}} controllerRes;
-    {{^containerType}}{{returnBaseType}}*{{/containerType}} controllerRes;
+
+
+    {{#returnType}} {{{returnType}}} controllerRes;
     //Call into the controller
-    controllerRes = controller->{{operationId}}({{#allParams}}{{^isPrimitiveType}}{{/isPrimitiveType}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
-    //Convert the {{dataType}} to json and return it
+    controllerRes = controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+    //Convert the {{{dataType}}} to json and return it
     // expand is hard coded
-    res.set_response(controllerRes->toJson(! expand.empty()));
+
+    {{^containerType}}
+        Json responseJson = controllerRes->toJson(expand);
+    {{/containerType}}
+    {{#containerType}}
+        Json::array_t arr;
+        for (int i=0; i<controllerRes.size(); ++i) {
+            {{baseType}} el = controllerRes.at(i);
+	        arr.push_back(el->toJson(expand));
+        }
+        Json responseJson { std::move(arr) };
+    {{/containerType}}
+    res.set_response(responseJson);
+    {{/returnType}}
+        {{^returnType}}
+                controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+                res.set_response("");
+        {{/returnType}}
     {{/isDefault}}{{/responses}}
   }
 {{/operation}}{{/operations}}
-
-}
 
 }  // em
 }  // foghorn

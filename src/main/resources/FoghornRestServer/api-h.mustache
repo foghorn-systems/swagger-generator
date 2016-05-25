@@ -1,10 +1,9 @@
 #pragma once
 
-include <foghorn/config/config.h>
-include <foghorn/config/controllers.h>
-include <foghorn/em/api/rest/rest.h>
+{{#imports}}
+    #include <{{importRelative}}>
+{{/imports}}
 
-//TODO  indentation
 
 namespace foghorn {
 namespace em {
@@ -15,23 +14,30 @@ using Response = foghorn::wire::rest::Response;
 
 class {{classname}} {
   public:
-    {{classname}}Api (config::{{baseName}}Controller* controller);
-    void add_handlers (rest::Dispatcher$ rest);
+    class {{baseName}}Controller;
+    {{classname}} ({{baseName}}Controller* controller);
+    void add_handlers (rest::Dispatcher& rest);
+    {{#operations}}{{#operation}}// ---------------------------------------------------------------------------
+    // {{operationId}}
+    // {{httpMethod}}
+    // {{path}}
+    // {{notes}}
+    // ---------------------------------------------------------------------------
+    void {{operationId}} (const Request& req, Response& res);{{/operation}}{{/operations}}
+    class {{baseName}}Controller {
+      public:
+        {{baseName}}Controller() {}
+        virtual ~{{baseName}}Controller() {}
+        {{#operations}}{{#operation}}
+        virtual {{^returnType}}void{{/returnType}}{{{returnType}}} {{operationId}} ({{#allParams}}{{^isPrimitiveType}}{{{dataType}}}{{/isPrimitiveType}} {{#isPrimitiveType}}const {{{dataType}}}& {{/isPrimitiveType}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}}) {
 
-    {{#operations}}
-        {{#operation}}
-            // ---------------------------------------------------------------------------
-            // {{operationId}}
-            // {{httpMethod}}
-            // {{path}}
-            // {{notes}}
-            // ---------------------------------------------------------------------------
-            void {{operationId}} (const Request& req, Response& res);
-        {{/operation}}
-    {{/operations}}
+                throw rest::Error("Method Not Implemented", wire::rest::http_status_t::not_implemented);
+            }
+        {{/operation}}{{/operations}}
+    };
 
   private:
-    config::{{baseName}}Controller* controller;
+    {{baseName}}Controller* controller;
 };
 
 }  // em
