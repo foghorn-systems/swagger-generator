@@ -9,11 +9,19 @@ import java.util.List;
 import java.util.Map;
 
 import io.swagger.codegen.CodegenConfig;
+import io.swagger.codegen.CodegenProperty;
 import io.swagger.codegen.CodegenType;
 import io.swagger.codegen.DefaultCodegen;
 import io.swagger.models.properties.ArrayProperty;
+import io.swagger.models.properties.BooleanProperty;
+import io.swagger.models.properties.DoubleProperty;
+import io.swagger.models.properties.FloatProperty;
+import io.swagger.models.properties.IntegerProperty;
+import io.swagger.models.properties.LongProperty;
 import io.swagger.models.properties.MapProperty;
+import io.swagger.models.properties.ObjectProperty;
 import io.swagger.models.properties.Property;
+import io.swagger.models.properties.StringProperty;
 
 public class FoghornrestserverGenerator extends DefaultCodegen implements CodegenConfig {
 
@@ -65,6 +73,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         this.typeMapping.put("string", "std::string");
         this.typeMapping.put("number", "double");
         this.typeMapping.put("integer", "int");
+        this.typeMapping.put("object", "std::string");
+        this.typeMapping.put("null", "nullptr");
 
         modelNameSuffix = "*";
 
@@ -153,13 +163,72 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
                     Map<String, String> modifiedImport = new HashMap<>();
                     modifiedImport.put("importRelative",
                             this.rootGenPackage + "/" + importClass.replace("*", "").replace(".", "/")
-                    + ".h");
+                                    + ".h");
                     modifiedImports.add(modifiedImport);
                 }
             }
         }
         objs.put("imports", modifiedImports);
         return objs;
+    }
+
+    @Override
+    public String toDefaultValue(Property p) {
+        if (p instanceof ObjectProperty) {
+            return "\"\"";
+        } else if (p instanceof StringProperty) {
+            StringProperty sp = (StringProperty) p;
+            return null == sp.getDefault() ? "\"\"" : sp.getDefault();
+        } else if (p instanceof BooleanProperty) {
+            BooleanProperty bp = (BooleanProperty) p;
+            return bp.getDefault() != null ? bp.getDefault().toString() : "false";
+        } else if (p instanceof DoubleProperty) {
+            DoubleProperty dp3 = (DoubleProperty) p;
+            return dp3.getDefault() != null ? dp3.getDefault().toString() : "0.0";
+        } else if (p instanceof FloatProperty) {
+            FloatProperty dp2 = (FloatProperty) p;
+            return dp2.getDefault() != null ? dp2.getDefault().toString() : "0.0";
+        } else if (p instanceof IntegerProperty) {
+            IntegerProperty dp1 = (IntegerProperty) p;
+            return dp1.getDefault() != null ? dp1.getDefault().toString() : "0";
+        } else if (p instanceof LongProperty) {
+            LongProperty dp = (LongProperty) p;
+            return dp.getDefault() != null ? dp.getDefault().toString() : "0";
+        } else if (p instanceof ArrayProperty) {
+            ArrayProperty ap = (ArrayProperty) p;
+            return "{}";
+        } else {
+            return "nullptr";
+        }
+    }
+
+    @Override
+    public CodegenProperty fromProperty(String name, Property p) {
+        CodegenProperty property = super.fromProperty(name, p);
+        property.vendorExtensions.put("jsonType", toJsonType(p));
+        return property;
+    }
+
+    public String toJsonType(Property p) {
+        if (p instanceof ObjectProperty) {
+            return "string";
+        } else if (p instanceof StringProperty) {
+            return "string";
+        } else if (p instanceof BooleanProperty) {
+            return "boolean";
+        } else if (p instanceof DoubleProperty) {
+            return "number";
+        } else if (p instanceof FloatProperty) {
+            return "number";
+        } else if (p instanceof IntegerProperty) {
+            return "number";
+        } else if (p instanceof LongProperty) {
+            return "number";
+        } else if (p instanceof ArrayProperty) {
+            return "array";
+        } else {
+            return "null";
+        }
     }
 
     /**

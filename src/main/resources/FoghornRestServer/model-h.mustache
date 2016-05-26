@@ -21,8 +21,15 @@ class {{classFilename}} {
      Json toJson(bool expand);
      void fromJson(const Json& j);
 
+    {{#vars}}
+        void {{setter}}(const {{{datatype}}}& {{name}}_) { {{name}} = {{name}}_; }
+        {{{datatype}}} {{getter}}() { return {{name}}; }
+    {{/vars}}
+
   private:
-     std::string name;
+    {{#vars}}
+        {{{datatype}}} {{name}};
+    {{/vars}}
 };
     }
     }

@@ -32,7 +32,7 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
   // ---------------------------------------------------------------------------
   void {{classname}}::{{operationId}} (const Request& req, Response& res) {
 
-    std::cout << "invoking {{operationId}}\n";
+    std::cout << "invoking {{operationId}}" << std::endl;
 
     //query params
     {{#queryParams}}
@@ -48,7 +48,7 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
     {{paramName}} = {{#isBoolean}}(strcasecmp("true",{{paramName}}Str.c_str()) == 0);{{/isBoolean}}
         {{^isBoolean}}{{paramNameStr}};{{/isBoolean}}
     }
-    std::cout << "{{paramName}} query parameter [" << {{paramName}} << "] provided.\n";{{/queryParams}}
+    std::cout << "{{paramName}} query parameter [" << {{paramName}} << "] provided." << std::endl;{{/queryParams}}
 
     //path params
     {{#pathParams}} std::string {{paramName}};
@@ -58,18 +58,18 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
       std::cout << "Missing path param [ {{paramName}} ]\n";
       throw new rest::Error("Missing path param [ {{paramName}} ]", http_status_t::bad_request);
     } 
-    std::cout << "{{paramName}} path parameter [" << {{paramName}} << "] provided.\n"; {{/pathParams}}
+    std::cout << "{{paramName}} path parameter [" << {{paramName}} << "] provided." << std::endl; {{/pathParams}}
 
     {{#bodyParams}} //body param
     std::string body = req.get_body();
-    std::cout << "{{operationId}} body: [" << body << "]\n";
+    std::cout << "{{operationId}} body: [" << body << "]" << std::endl;
     //Convert the body into Json.
     Json jsonBody;
     try {
       jsonBody = io::txt::from_string
       <Json>(body);
     } catch (std::exception& e) {
-      std::cout << "Error reading request body [" << e.what() << "]\n";
+      std::cout << "Error reading request body [" << e.what() << "]" << std::endl;
       throw new rest::Error(e.what(), http_status_t::bad_request);
     }
 
