@@ -1,0 +1,21 @@
+#pragma once
+
+{{#imports}}
+#include <{{importRelative}}>
+{{/imports}}
+
+namespace foghorn {
+namespace em {
+
+class {{baseName}}ApiProxy {
+  public:
+    {{baseName}}ApiProxy() {}
+    ~{{baseName}}ApiProxy() {}
+    {{#operations}}{{#operation}}
+    {{^returnType}}void{{/returnType}}{{#returnType}}{{{returnType}}}{{^returnContainer}}*{{/returnContainer}}{{/returnType}} {{operationId}} ({{#allParams}}{{#isBodyParam}}{{{dataType}}}*{{/isBodyParam}} {{^isBodyParam}}const {{{dataType}}}& {{/isBodyParam}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+    {{/operation}}{{/operations}}
+    };
+};
+
+}  // em
+}  // foghorn

@@ -98,6 +98,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
          */
         apiTemplateFiles.put("api-cc.mustache", ".cc");
         apiTemplateFiles.put("api-h.mustache", ".h");
+        apiTemplateFiles.put("proxy-cc.mustache", "Proxy.cc");
+        apiTemplateFiles.put("proxy-h.mustache", "Proxy.h");
 
         /**
          * Template Location.  This is the location which templates will be read from.  The generator
