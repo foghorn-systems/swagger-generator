@@ -21,6 +21,7 @@ import io.swagger.models.properties.LongProperty;
 import io.swagger.models.properties.MapProperty;
 import io.swagger.models.properties.ObjectProperty;
 import io.swagger.models.properties.Property;
+import io.swagger.models.properties.RefProperty;
 import io.swagger.models.properties.StringProperty;
 
 public class FoghornrestserverGenerator extends DefaultCodegen implements CodegenConfig {
@@ -76,7 +77,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         this.typeMapping.put("object", "std::string");
         this.typeMapping.put("null", "nullptr");
 
-        modelNameSuffix = "*";
+        modelNameSuffix = "";
 
         // set the output folder here
         outputFolder = "generated-code/FoghornRestServer";
@@ -143,11 +144,13 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
          * Language Specific Primitives.  These types will not trigger imports by
          * the client generator
          */
-//    languageSpecificPrimitives = new HashSet<String>(
-//      Arrays.asList(
-//        "Type1",      // replace these with your types
-//        "Type2")
-//    );
+        languageSpecificPrimitives = new HashSet<String>(
+                Arrays.asList(
+                        "std::string",
+                        "bool",
+                        "std::vector"
+                )
+        );
     }
 
 
@@ -159,13 +162,11 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         if (imports != null) {
             for (Map<String, String> importMap : imports) {
                 String importClass = importMap.get("import");
-                if (importClass.endsWith("*")) {
-                    Map<String, String> modifiedImport = new HashMap<>();
-                    modifiedImport.put("importRelative",
-                            this.rootGenPackage + "/" + importClass.replace("*", "").replace(".", "/")
-                                    + ".h");
-                    modifiedImports.add(modifiedImport);
-                }
+                Map<String, String> modifiedImport = new HashMap<>();
+                modifiedImport.put("importRelative",
+                        this.rootGenPackage + "/" + importClass.replace("*", "").replace(".", "/")
+                                + ".h");
+                modifiedImports.add(modifiedImport);
             }
         }
         objs.put("imports", modifiedImports);
@@ -226,6 +227,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
             return "number";
         } else if (p instanceof ArrayProperty) {
             return "array";
+        } else if (p instanceof RefProperty) {
+            return "object";
         } else {
             return "null";
         }
@@ -271,7 +274,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         if (p instanceof ArrayProperty) {
             ArrayProperty ap = (ArrayProperty) p;
             Property inner = ap.getItems();
-            return getSwaggerType(p) + "<" + getTypeDeclaration(inner) + ">";
+            return getSwaggerType(p) + "<" + getTypeDeclaration(inner) +
+                    (inner instanceof RefProperty ? "*" : "" ) +">";
         } else if (p instanceof MapProperty) {
             MapProperty mp = (MapProperty) p;
             Property inner = mp.getAdditionalProperties();

@@ -36,17 +36,16 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
 
     //query params
     {{#queryParams}}
-        {{#isBoolean}}
-            std::string default_{{paramName}} = "{{defaultValue}}";
-            {{dataType}} {{paramName}} = (strcasecmp("true",default_{{paramName}}.c_str()) == 0);
-        {{/isBoolean}}
-        {{^isBoolean}}
-            {{dataType}} {{paramName}} = "{{defaultValue}}";
-        {{/isBoolean}}
+    {{#isBoolean}}
+    std::string default_{{paramName}} = "{{defaultValue}}";
+    {{dataType}} {{paramName}} = (strcasecmp("true",default_{{paramName}}.c_str()) == 0);
+    {{/isBoolean}}
+    {{^isBoolean}}
+    {{dataType}} {{paramName}} = "{{defaultValue}}";
+    {{/isBoolean}}
     if (! req.get_param("{{paramName}}").empty()) {
       std::string {{paramName}}Str = req.get_param("{{paramName}}");
-    {{paramName}} = {{#isBoolean}}(strcasecmp("true",{{paramName}}Str.c_str()) == 0);{{/isBoolean}}
-        {{^isBoolean}}{{paramNameStr}};{{/isBoolean}}
+      {{paramName}} = {{#isBoolean}}(strcasecmp("true",{{paramName}}Str.c_str()) == 0);{{/isBoolean}}{{^isBoolean}}{{paramNameStr}};{{/isBoolean}}
     }
     std::cout << "{{paramName}} query parameter [" << {{paramName}} << "] provided." << std::endl;{{/queryParams}}
 
@@ -56,7 +55,7 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
       {{paramName}} = req.get_param("{{paramName}}");
     } else {
       std::cout << "Missing path param [ {{paramName}} ]\n";
-      throw new rest::Error("Missing path param [ {{paramName}} ]", http_status_t::bad_request);
+      throw rest::Error("Missing path param [ {{paramName}} ]", http_status_t::bad_request);
     } 
     std::cout << "{{paramName}} path parameter [" << {{paramName}} << "] provided." << std::endl; {{/pathParams}}
 
@@ -66,44 +65,40 @@ void {{classname}}::add_handlers (rest::Dispatcher& rest) {
     //Convert the body into Json.
     Json jsonBody;
     try {
-      jsonBody = io::txt::from_string
-      <Json>(body);
+      jsonBody = io::txt::from_string<Json>(body);
     } catch (std::exception& e) {
       std::cout << "Error reading request body [" << e.what() << "]" << std::endl;
-      throw new rest::Error(e.what(), http_status_t::bad_request);
+      throw rest::Error(e.what(), http_status_t::bad_request);
     }
 
     //Create a {{dataType}} from Json
     {{dataType}} {{paramName}};
-    {{paramName}}->fromJson(jsonBody);
+    {{paramName}}.fromJson(jsonBody);
     {{/bodyParams}}
 
     {{#responses}}{{#isDefault}} // response
-
-
-    {{#returnType}} {{{returnType}}} controllerRes;
+    {{#returnType}} {{{returnType}}}{{^returnContainer}}*{{/returnContainer}} controllerRes;
     //Call into the controller
-    controllerRes = controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+    controllerRes = controller->{{operationId}}({{#allParams}}{{#isBodyParam}}&{{/isBodyParam}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
     //Convert the {{{dataType}}} to json and return it
     // expand is hard coded
-
     {{^containerType}}
-        Json responseJson = controllerRes->toJson(expand);
+    Json responseJson = controllerRes->toJson(expand);
     {{/containerType}}
     {{#containerType}}
-        Json::array_t arr;
-        for (int i=0; i<controllerRes.size(); ++i) {
-            {{baseType}} el = controllerRes.at(i);
-	        arr.push_back(el->toJson(expand));
-        }
-        Json responseJson { std::move(arr) };
+    Json::array_t arr;
+    for (int i=0; i<controllerRes.size(); ++i) {
+      {{baseType}}* el = controllerRes.at(i);
+	    arr.push_back(el->toJson(expand));
+    }
+    Json responseJson { std::move(arr) };
     {{/containerType}}
     res.set_response(responseJson);
     {{/returnType}}
-        {{^returnType}}
-                controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
-                res.set_response("");
-        {{/returnType}}
+    {{^returnType}}
+    controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
+    res.set_response("");
+    {{/returnType}}
     {{/isDefault}}{{/responses}}
   }
 {{/operation}}{{/operations}}

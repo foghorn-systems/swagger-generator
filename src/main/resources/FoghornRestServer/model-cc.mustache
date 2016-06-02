@@ -3,13 +3,9 @@
 #include <map>
 #include <vector>
 #include <iostream>
-    #include <foghorn/em/api/rest/rest.h>
-    #include <foghorn/wire/rest.inl>
-
+#include <foghorn/em/api/rest/rest.h>
+#include <foghorn/wire/rest.inl>
 #include <foghorn/wire/json.inl>
-    {{#models}}{{#model}}
-        #include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
-    {{/model}}{{/models}}
 
 namespace foghorn {
 namespace em {
@@ -20,56 +16,67 @@ using Json = wire::json_t;
 
 {{#models}}
 {{#model}}
-     {{classFilename}}::{{classFilename}}() {}
-     {{classFilename}}::~{{classFilename}}() {}
+  {{classFilename}}::{{classFilename}}() {}
+  {{classFilename}}::~{{classFilename}}() {}
+  {{#vars}}
+  void {{classFilename}}::{{setter}}(const {{{datatype}}}& {{name}}_) {
+    {{name}} = {{name}}_;
+  }
+  {{{datatype}}} {{classFilename}}::{{getter}}() {
+    return {{name}};
+  }
+  {{/vars}}
 
-     Json {{classFilename}}::toJson(bool expand) {
-        Json::object_t info;
-        info["id"] = Json{ "id" };
-        return Json{ std::move(info) };
-     }
+  Json {{classFilename}}::toJson(bool expand) {
+    Json::object_t info;
+    info["id"] = Json{ "id" };
+    return Json{ std::move(info) };
+  }
 
-     void {{classFilename}}::fromJson(const Json& j) {
-
-        if (j.get_kind() != Json::object) {
-            throw new rest::Error("{{classFilename}} body was not an object", http_status_t::bad_request);
-        } else {
-            const Json::object_t& jobj = j.as<Json::object_t>();
-            {{#vars}}
-            // "{{name}}" {{#required}}(REQUIRED){{/required}} {{^required}}(OPTIONAL){{/required}}
-                {{{datatype}}} {{name}}Default = {{{defaultValue}}};
-            {{setter}}({{name}}Default);
-            auto {{name}}Iterator = jobj.find("{{name}}");
-            if ({{name}}Iterator == jobj.end()) {
-              {{#required}}throw new rest::Error("{{classFilename}} missing required property \"{{name}}\"", http_status_t::bad_request);{{/required}}
-            } else {
-              Json {{name}}Json = {{name}}Iterator->second;
-              if ({{name}}Json.get_kind() != Json::{{vendorExtensions.jsonType}}) {
-                throw new rest::Error("{{classFilename}} property {{name}} was not a string", http_status_t::bad_request);
-              }
-                // only works for singly nested lists - need recursive method to support multi-dimensional
-              {{#isContainer}}
-                  const std::vector<foghorn::wire::json_t>& {{name}}JsonArray = {{name}}Json.as<Json::array_t>();
-                  std::vector<std::string> {{name}} = {};
-                  for (unsigned int i=0; i< {{name}}JsonArray.size(); i++) {
+  void {{classFilename}}::fromJson(const Json& j) {
+    if (j.get_kind() != Json::object) {
+      throw rest::Error("{{classFilename}} body was not an object", http_status_t::bad_request);
+    } else {
+      const Json::object_t& jobj = j.as<Json::object_t>();
+      {{#vars}}
+      {{{datatype}}} {{name}}Default = {{{defaultValue}}};
+      {{setter}}({{name}}Default);
+      auto {{name}}Iterator = jobj.find("{{name}}");
+      if ({{name}}Iterator == jobj.end()) {
+        {{#required}}throw rest::Error("{{classFilename}} missing required property \"{{name}}\"", http_status_t::bad_request);{{/required}}
+      } else {
+        Json {{name}}Json = {{name}}Iterator->second;
+        if ({{name}}Json.get_kind() != Json::{{vendorExtensions.jsonType}}) {
+          throw rest::Error("{{classFilename}} property {{name}} was not a string", http_status_t::bad_request);
+        }
+      {{#isContainer}}
+        const std::vector<foghorn::wire::json_t>& {{name}}JsonArray = {{name}}Json.as<Json::array_t>();
+        std::vector<std::string> {{name}} = {};
+        for (unsigned int i=0; i< {{name}}JsonArray.size(); i++) {
                     foghorn::wire::json_t el = {{name}}JsonArray[i];
-                    {{#items}}
-                    if (el.get_kind() != Json::{{vendorExtensions.jsonType}}) {
-                        throw new rest::Error("{{classFilename}} property {{name}} item was not a string", http_status_t::bad_request);
-                    }
-                    {{name}}.push_back(el.as<Json::{{vendorExtensions.jsonType}}_t>());
-                    {{/items}}
-                  }
-              {{/isContainer}}
-              {{^isContainer}}
-              const {{{datatype}}}& {{name}} = {{name}}Json.as<Json::{{vendorExtensions.jsonType}}_t>();
-              {{/isContainer}}
-                {{setter}}({{name}});
-            }
-            {{/vars}}
-     }
+          {{#items}}
+          if (el.get_kind() != Json::{{vendorExtensions.jsonType}}) {
+            throw rest::Error("{{classFilename}} property {{name}} item was not a string", http_status_t::bad_request);
+          }
+          {{name}}.push_back(el.as<Json::{{vendorExtensions.jsonType}}_t>());
+          {{/items}}
+        }
+        {{/isContainer}}
+        {{^isContainer}}
+        {{#isPrimitiveType}}
+        const {{{datatype}}}& {{name}} = {{name}}Json.as<Json::{{vendorExtensions.jsonType}}_t>();
+        {{/isPrimitiveType}}
+        {{^isPrimitiveType}}
+        {{datatype}} {{name}};
+        {{name}}.fromJson({{name}}Json);
+        {{/isPrimitiveType}}
+        {{/isContainer}}
+        {{setter}}({{name}});
+      }
+      {{/vars}}
     }
+  }
 {{/model}}
 {{/models}}
-    }
-    }
+}
+}

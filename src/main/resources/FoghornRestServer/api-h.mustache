@@ -1,9 +1,8 @@
 #pragma once
 
 {{#imports}}
-    #include <{{importRelative}}>
+#include <{{importRelative}}>
 {{/imports}}
-
 
 namespace foghorn {
 namespace em {
@@ -29,10 +28,9 @@ class {{classname}} {
         {{baseName}}Controller() {}
         virtual ~{{baseName}}Controller() {}
         {{#operations}}{{#operation}}
-        virtual {{^returnType}}void{{/returnType}}{{{returnType}}} {{operationId}} ({{#allParams}}{{^isPrimitiveType}}{{{dataType}}}{{/isPrimitiveType}} {{#isPrimitiveType}}const {{{dataType}}}& {{/isPrimitiveType}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}}) {
-
-                throw rest::Error("Method Not Implemented", wire::rest::http_status_t::not_implemented);
-            }
+        virtual {{^returnType}}void{{/returnType}}{{#returnType}}{{{returnType}}}{{^returnContainer}}*{{/returnContainer}}{{/returnType}} {{operationId}} ({{#allParams}}{{#isBodyParam}}{{{dataType}}}*{{/isBodyParam}} {{^isBodyParam}}const {{{dataType}}}& {{/isBodyParam}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}}) {
+          throw rest::Error("Method Not Implemented", wire::rest::http_status_t::not_implemented);
+        }
         {{/operation}}{{/operations}}
     };
 

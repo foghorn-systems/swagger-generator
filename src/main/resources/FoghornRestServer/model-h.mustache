@@ -3,8 +3,10 @@
 #include <map>
 #include <vector>
 #include <iostream>
-
 #include <foghorn/wire/json.h>
+{{#models}}{{#model}}
+#include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
+{{/model}}{{/models}}
 
 namespace foghorn {
 namespace em {
@@ -15,23 +17,23 @@ using Json = wire::json_t;
 {{#model}}
 class {{classFilename}} {
   public:
-     {{classFilename}}();
+    {{classFilename}}();
     ~{{classFilename}}();
 
-     Json toJson(bool expand);
-     void fromJson(const Json& j);
+    Json toJson(bool expand);
+    void fromJson(const Json& j);
 
     {{#vars}}
-        void {{setter}}(const {{{datatype}}}& {{name}}_) { {{name}} = {{name}}_; }
-        {{{datatype}}} {{getter}}() { return {{name}}; }
+    void {{setter}}(const {{{datatype}}}& {{name}}_);
+    {{{datatype}}} {{getter}}();
     {{/vars}}
 
   private:
     {{#vars}}
-        {{{datatype}}} {{name}};
+    {{{datatype}}} {{name}};
     {{/vars}}
 };
-    }
-    }
+} 
+}
 {{/model}}
 {{/models}}
