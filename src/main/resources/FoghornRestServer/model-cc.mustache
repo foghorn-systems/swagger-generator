@@ -1,11 +1,23 @@
-#pragma once
 
-#include <map>
-#include <vector>
-#include <iostream>
-#include <foghorn/em/api/rest/rest.h>
-#include <foghorn/wire/rest.inl>
+#include <sstream>
+
+{{#models}}
+{{#model}}
+#include <foghorn/em/api/rest/generated/model/{{classname}}.h>
+{{^validatorClass}}
+{{#validators}}
+#include <foghorn/em/api/rest/generated/model/{{classname}}{{validatorClass}}.h>
+{{/validators}}
+{{/validatorClass}}
+{{/model}}
+{{/models}}
+{{#imports}}
+#include <foghorn/em/api/rest/generated/model/{{import}}.h>
+{{/imports}}
+#include <foghorn/io/txt/in_strm.inl>
+#include <foghorn/io/txt/out_strm.inl>
 #include <foghorn/wire/json.inl>
+#include <foghorn/wire/rest.inl>
 
 namespace foghorn {
 namespace em {
@@ -16,67 +28,108 @@ using Json = wire::json_t;
 
 {{#models}}
 {{#model}}
-  {{classFilename}}::{{classFilename}}() {}
-  {{classFilename}}::~{{classFilename}}() {}
-  {{#vars}}
-  void {{classFilename}}::{{setter}}(const {{{datatype}}}& {{name}}_) {
-    {{name}} = {{name}}_;
-  }
-  {{{datatype}}} {{classFilename}}::{{getter}}() {
-    return {{name}};
-  }
-  {{/vars}}
+// --------------------------------------------------
+// {{classname}}
+// --------------------------------------------------
 
-  Json {{classFilename}}::toJson(bool expand) {
-    Json::object_t info;
-    info["id"] = Json{ "id" };
-    return Json{ std::move(info) };
-  }
+{{classname}}::{{classname}}() {}
+{{classname}}::~{{classname}}() {}
 
-  void {{classFilename}}::fromJson(const Json& j) {
-    if (j.get_kind() != Json::object) {
+void {{classFilename}}::fromJson(const Json& j) {
+   if (j.get_kind() != Json::object) {
       throw rest::Error("{{classFilename}} body was not an object", http_status_t::bad_request);
-    } else {
-      const Json::object_t& jobj = j.as<Json::object_t>();
-      {{#vars}}
-      {{{datatype}}} {{name}}Default = {{{defaultValue}}};
-      {{setter}}({{name}}Default);
-      auto {{name}}Iterator = jobj.find("{{name}}");
-      if ({{name}}Iterator == jobj.end()) {
-        {{#required}}throw rest::Error("{{classFilename}} missing required property \"{{name}}\"", http_status_t::bad_request);{{/required}}
-      } else {
-        Json {{name}}Json = {{name}}Iterator->second;
-        if ({{name}}Json.get_kind() != Json::{{vendorExtensions.jsonType}}) {
-          throw rest::Error("{{classFilename}} property {{name}} was not a string", http_status_t::bad_request);
-        }
+   }
+   const Json::object_t& jobj = j.as<Json::object_t>();
+   {{#vars}}
+
+   // {{name}}
+   {{#isPrimitiveType}}
+   {{{datatype}}} {{name}}_ = {{{defaultValue}}};
+   auto {{name}}Iterator = jobj.find("{{name}}");
+   if ({{name}}Iterator != jobj.end()) {
+      {{^vendorExtensions.jsonType}}
+      {{name}}_ = {{name}}Iterator->second;
+      {{/vendorExtensions.jsonType}}
+      {{#vendorExtensions.jsonType}}
+      Json {{name}}Json = {{name}}Iterator->second;
+      if ({{name}}Json.get_kind() != Json::{{vendorExtensions.jsonType}}) {
+         throw rest::Error("{{classFilename}} property {{name}} was not a string", http_status_t::bad_request);
+      }
       {{#isContainer}}
-        const std::vector<foghorn::wire::json_t>& {{name}}JsonArray = {{name}}Json.as<Json::array_t>();
-        std::vector<std::string> {{name}} = {};
-        for (unsigned int i=0; i< {{name}}JsonArray.size(); i++) {
-                    foghorn::wire::json_t el = {{name}}JsonArray[i];
-          {{#items}}
-          if (el.get_kind() != Json::{{vendorExtensions.jsonType}}) {
+      const std::vector<foghorn::wire::json_t>& {{name}}JsonArray = {{name}}Json.as<Json::array_t>();
+      for (unsigned int i=0; i< {{name}}JsonArray.size(); i++) {
+         foghorn::wire::json_t el = {{name}}JsonArray[i];
+         {{#items}}
+         if (el.get_kind() != Json::{{vendorExtensions.jsonType}}) {
             throw rest::Error("{{classFilename}} property {{name}} item was not a string", http_status_t::bad_request);
-          }
-          {{name}}.push_back(el.as<Json::{{vendorExtensions.jsonType}}_t>());
-          {{/items}}
-        }
-        {{/isContainer}}
-        {{^isContainer}}
+         }
+         {{name}}_.push_back(el.as<Json::{{vendorExtensions.jsonType}}_t>());
+         {{/items}}
+      }
+      {{/isContainer}}
+      {{^isContainer}}
+      {{name}}_ = {{name}}Json.as<Json::{{vendorExtensions.jsonType}}_t>();
+      {{/isContainer}}
+      {{/vendorExtensions.jsonType}}
+   }{{#required}} else {
+      throw rest::Error("{{classFilename}} missing required property \"{{name}}\"", http_status_t::bad_request);
+   }{{/required}}
+   {{name}} = {{name}}_;
+   {{/isPrimitiveType}}
+   {{^isPrimitiveType}}
+   // This pointer-type has to be set by the Controller
+   {{/isPrimitiveType}}
+   {{/vars}}
+}
+{{^validatorClass}}
+{{#validators}}
+
+void {{classname}}::from{{validatorClass}}(const {{classname}}{{validatorClass}}& {{validatorParam}}) {
+   {{#validatorVars}}
+   {{setter}}({{validatorParam}}.{{getter}}());
+   {{/validatorVars}}
+   {{^validatorVars}}
+   // No fields to set
+   {{/validatorVars}}
+}
+{{/validators}}
+
+Json {{classname}}::toJson(bool expand) {
+   Json::object_t info;
+   {{#vars}}
+
+   // {{name}}
+   {{^isContainer}}
+   {{#isPrimitiveType}}
+   info["{{name}}"] = Json{ {{getter}}() };
+   {{/isPrimitiveType}}
+   {{^isPrimitiveType}}
+   if ({{name}} != nullptr) {
+      info["{{name}}"] = {{name}}->toJson(expand);
+   }
+   {{/isPrimitiveType}}
+   {{/isContainer}}
+   {{#isContainer}}
+   { Json::array_t arr;
+     for (auto i = {{name}}.begin(); i != {{name}}.end(); ++i) {
         {{#isPrimitiveType}}
-        const {{{datatype}}}& {{name}} = {{name}}Json.as<Json::{{vendorExtensions.jsonType}}_t>();
+        arr.push_back( Json { std::move(*i) } );
         {{/isPrimitiveType}}
         {{^isPrimitiveType}}
-        {{datatype}} {{name}};
-        {{name}}.fromJson({{name}}Json);
+	arr.push_back( (*i)->toJson(expand) );
         {{/isPrimitiveType}}
-        {{/isContainer}}
-        {{setter}}({{name}});
-      }
-      {{/vars}}
-    }
-  }
+     }
+     info["{{name}}"] = Json{ std::move(arr) };
+   }
+   {{/isContainer}}
+   {{/vars}}
+   return Json{ std::move(info) };
+}
+{{/validatorClass}}
+
 {{/model}}
 {{/models}}
-}
-}
+
+}  // em namespace
+}  // foghorn namespace
+

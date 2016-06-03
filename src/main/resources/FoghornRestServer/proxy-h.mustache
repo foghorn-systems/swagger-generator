@@ -1,7 +1,7 @@
 #pragma once
 
 {{#imports}}
-#include <{{importRelative}}>
+#include <foghorn/em/api/rest/generated/model/{{import}}.h>
 {{/imports}}
 
 namespace foghorn {
@@ -11,10 +11,12 @@ class {{baseName}}ApiProxy {
   public:
     {{baseName}}ApiProxy() {}
     ~{{baseName}}ApiProxy() {}
-    {{#operations}}{{#operation}}
-    {{^returnType}}void{{/returnType}}{{#returnType}}{{{returnType}}}{{^returnContainer}}*{{/returnContainer}}{{/returnType}} {{operationId}} ({{#allParams}}{{#isBodyParam}}{{{dataType}}}*{{/isBodyParam}} {{^isBodyParam}}const {{{dataType}}}& {{/isBodyParam}}{{paramName}}{{#hasMore}},{{/hasMore}}{{/allParams}});
-    {{/operation}}{{/operations}}
-    };
+
+    {{#operations}}
+    {{#operation}}
+    {{^returnType}}void{{/returnType}}{{{returnType}}} {{operationId}}({{#allParams}}{{#vendorExtensions.passByReference}}const {{/vendorExtensions.passByReference}}{{{dataType}}}{{#vendorExtensions.passByReference}}&{{/vendorExtensions.passByReference}} {{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}});
+    {{/operation}}
+    {{/operations}}
 };
 
 }  // em

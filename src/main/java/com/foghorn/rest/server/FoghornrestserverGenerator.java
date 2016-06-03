@@ -7,11 +7,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import io.swagger.codegen.CodegenConfig;
+import io.swagger.codegen.CodegenModel;
+import io.swagger.codegen.CodegenModelType;
+import io.swagger.codegen.CodegenModelFactory;
 import io.swagger.codegen.CodegenProperty;
+import io.swagger.codegen.CodegenParameter;
 import io.swagger.codegen.CodegenType;
 import io.swagger.codegen.DefaultCodegen;
+import io.swagger.util.Json;
 import io.swagger.models.properties.ArrayProperty;
 import io.swagger.models.properties.BooleanProperty;
 import io.swagger.models.properties.DoubleProperty;
@@ -23,9 +29,14 @@ import io.swagger.models.properties.ObjectProperty;
 import io.swagger.models.properties.Property;
 import io.swagger.models.properties.RefProperty;
 import io.swagger.models.properties.StringProperty;
+import io.swagger.models.parameters.Parameter;
 
 public class FoghornrestserverGenerator extends DefaultCodegen implements CodegenConfig {
 
+    public static class FoghornCodegenModel extends CodegenModel {
+       public String validatorClass;
+       public List<Map<String,Object>> validators;
+    }
 
     // generation root packages
     protected String rootGenPackage = "foghorn/em/api/rest/generated";
@@ -74,10 +85,13 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         this.typeMapping.put("string", "std::string");
         this.typeMapping.put("number", "double");
         this.typeMapping.put("integer", "int");
-        this.typeMapping.put("object", "std::string");
+        this.typeMapping.put("object", "Json");
         this.typeMapping.put("null", "nullptr");
 
-        modelNameSuffix = "";
+	this.importMapping.clear();
+        this.importMapping.put("Error", null);
+
+	CodegenModelFactory.setTypeMapping(CodegenModelType.MODEL, FoghornCodegenModel.class);
 
         // set the output folder here
         outputFolder = "generated-code/FoghornRestServer";
@@ -118,29 +132,10 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         modelPackage = "model";
 
         /**
-         * Reserved words.  Override this with reserved words specific to your language
-         */
-        reservedWords = new HashSet<String>(
-                Arrays.asList(
-                        "sample1",  // replace with static values
-                        "sample2")
-        );
-
-        /**
          * Additional Properties.  These values can be passed to the templates and
          * are available in models, apis, and supporting files
          */
         additionalProperties.put("apiVersion", apiVersion);
-
-        /**
-         * Supporting Files.  You can write single files for the generator with the
-         * entire object tree available.  If the input file has a suffix of `.mustache
-         * it will be processed by the template engine.  Otherwise, it will be copied
-         */
-//    supportingFiles.add(new SupportingFile("myFile.mustache",   // the input template or file
-//      "",                                                       // the destination folder, relative `outputFolder`
-//      "myFile.sample")                                          // the output file
-//    );
 
         /**
          * Language Specific Primitives.  These types will not trigger imports by
@@ -150,35 +145,103 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
                 Arrays.asList(
                         "std::string",
                         "bool",
+                        "int",
+                        "float",
+                        "double",
+		        "Json",
+                        "std::map",
                         "std::vector"
-                )
+		 )
         );
     }
 
+    @Override
+    public String toModelImport(String name) {
+       return importMapping.containsKey(name) ? importMapping.get(name) : name;
+    }
 
     @Override
-    public Map<String, Object> postProcessOperations(Map<String, Object> objs) {
+    public Map<String, Object> postProcessModels(Map<String, Object> objs) {
+       for (Object _mo : (List<Object>) objs.get("models")) {
+          Map<String, Object> mo = (Map<String, Object>) _mo;
+          FoghornCodegenModel fhcm = (FoghornCodegenModel) mo.get("model");
+	  for (String suffix : (new String[] { "New", "Edit" })) {
+             if (fhcm.name.endsWith(suffix)) {
+                fhcm.validatorClass = fhcm.name.substring(0, fhcm.name.length() - suffix.length());
+	     }
+	  }
+       }
+       return objs;
+    }
 
-        List<Map<String, String>> imports = (List<Map<String, String>>) objs.get("imports");
-        List<Map<String, String>> modifiedImports = new ArrayList<>();
-        if (imports != null) {
-            for (Map<String, String> importMap : imports) {
-                String importClass = importMap.get("import");
-                Map<String, String> modifiedImport = new HashMap<>();
-                modifiedImport.put("importRelative",
-                        this.rootGenPackage + "/" + importClass.replace("*", "").replace(".", "/")
-                                + ".h");
-                modifiedImports.add(modifiedImport);
-            }
-        }
-        objs.put("imports", modifiedImports);
-        return objs;
+    @Override
+    public Map<String, Object> postProcessAllModels(Map<String, Object> objs) {
+       // Index all CodegenModels by model name.
+       Map<String, FoghornCodegenModel> allModels = new HashMap<String, FoghornCodegenModel>();
+       for (Map.Entry<String, Object> entry : objs.entrySet()) {
+           String modelName = toModelName(entry.getKey());
+           Map<String, Object> inner = (Map<String, Object>) entry.getValue();
+           List<Map<String, Object>> models = (List<Map<String, Object>>) inner.get("models");
+           for (Map<String, Object> mo : models) {
+              FoghornCodegenModel cm = (FoghornCodegenModel) mo.get("model");
+	      if (cm.validatorClass == null) {
+	         cm.validators = new ArrayList<Map<String,Object>>();
+	      }
+              allModels.put(modelName, cm);
+           }
+       }
+
+       // Each "validator" class registers itself with its target
+       for (FoghornCodegenModel model : allModels.values()) {
+          if (model.validatorClass != null) {
+             FoghornCodegenModel targetClass = allModels.get(model.validatorClass);
+	     Map<String,Object> validator = new HashMap<String,Object>();
+	     String suffix = model.name.substring(targetClass.name.length());
+             validator.put("validatorClass", suffix);
+             validator.put("validatorParam", camelize(model.name, true));
+
+	     // The class "targetClass" will have a "fromFoo" method that should
+	     // copy over all fields shared by the two classes
+
+             // Index all model's CodegenProperties by property name
+             Map<String, CodegenProperty> modelVars = new HashMap<String, CodegenProperty>();
+             for (CodegenProperty property : model.vars) {
+	        modelVars.put(property.baseName, property);
+	     }
+	     // Each of targetClass's CodegenProperties, if it's also a Model property,
+	     // with generate a setter call in the "fromFoo" method.
+	     List<Map<String,String>> varsToCopy = new ArrayList<Map<String,String>>();
+             for (CodegenProperty targetProperty : targetClass.vars) {
+	        CodegenProperty sourceProperty = modelVars.get(targetProperty.baseName);
+		if (sourceProperty != null) {
+		   Map<String,String> varToCopy = new HashMap<String,String>();
+		   varToCopy.put("getter", sourceProperty.getter);
+		   varToCopy.put("setter", targetProperty.setter);
+		   varsToCopy.add(varToCopy);
+		}
+	     }
+	     if (!varsToCopy.isEmpty()) {
+                validator.put("validatorVars", varsToCopy);
+	     }
+	     targetClass.validators.add(validator);
+	  }
+       }
+       return objs;
+    }
+
+    @Override
+    public CodegenParameter fromParameter(Parameter param, Set<String> imports) {
+        CodegenParameter parameter = super.fromParameter(param, imports);
+	if ((parameter.isPrimitiveType == null) || (parameter.isString != null)) {
+           parameter.vendorExtensions.put("passByReference", "true");
+	}
+        return parameter;
     }
 
     @Override
     public String toDefaultValue(Property p) {
         if (p instanceof ObjectProperty) {
-            return "\"\"";
+            return "{}";
         } else if (p instanceof StringProperty) {
             StringProperty sp = (StringProperty) p;
             return null == sp.getDefault() ? "\"\"" : sp.getDefault();
@@ -208,14 +271,16 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     @Override
     public CodegenProperty fromProperty(String name, Property p) {
         CodegenProperty property = super.fromProperty(name, p);
+        property.vendorExtensions.put("propertyClass", p.getClass().getName());
         property.vendorExtensions.put("jsonType", toJsonType(p));
+	if (needsPassByReference(p)) {
+	   property.vendorExtensions.put("passByReference", "true");
+        }
         return property;
     }
 
     public String toJsonType(Property p) {
-        if (p instanceof ObjectProperty) {
-            return "string";
-        } else if (p instanceof StringProperty) {
+        if (p instanceof StringProperty) {
             return "string";
         } else if (p instanceof BooleanProperty) {
             return "boolean";
@@ -231,9 +296,15 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
             return "array";
         } else if (p instanceof RefProperty) {
             return "object";
-        } else {
-            return "null";
         }
+	return null;
+    }
+
+    public boolean needsPassByReference(Property p) {
+        return (p instanceof ObjectProperty) ||
+               (p instanceof StringProperty) ||
+               (p instanceof ArrayProperty) ||
+               (p instanceof MapProperty);
     }
 
     /**
@@ -276,13 +347,14 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
         if (p instanceof ArrayProperty) {
             ArrayProperty ap = (ArrayProperty) p;
             Property inner = ap.getItems();
-            return getSwaggerType(p) + "<" + getTypeDeclaration(inner) +
-                    (inner instanceof RefProperty ? "*" : "" ) +">";
+            return "std::vector" + "<" + getTypeDeclaration(inner) + ">";
         } else if (p instanceof MapProperty) {
             MapProperty mp = (MapProperty) p;
             Property inner = mp.getAdditionalProperties();
-            return getSwaggerType(p) + "[String, " + getTypeDeclaration(inner) + "]";
-        }
+            return "std::map<std::string," + getTypeDeclaration(inner) + ">";
+        } else if (p instanceof RefProperty) {
+	    return super.getTypeDeclaration(p) + "*";
+	}
         return super.getTypeDeclaration(p);
     }
 
@@ -297,10 +369,9 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     @Override
     public String getSwaggerType(Property p) {
         String swaggerType = super.getSwaggerType(p);
-        String type = null;
         if (typeMapping.containsKey(swaggerType)) {
             return typeMapping.get(swaggerType);
         }
-        return toModelName(swaggerType);
+        return swaggerType;
     }
 }

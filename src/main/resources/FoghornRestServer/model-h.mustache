@@ -2,38 +2,66 @@
 
 #include <map>
 #include <vector>
-#include <iostream>
+#include <sstream>
+
 #include <foghorn/wire/json.h>
-{{#models}}{{#model}}
-#include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
-{{/model}}{{/models}}
 
 namespace foghorn {
 namespace em {
 
 using Json = wire::json_t;
-
+{{#imports}}
+class {{import}};
+{{/imports}}
 {{#models}}
 {{#model}}
-class {{classFilename}} {
+{{^validatorClass}}
+{{#validators}}
+class {{classname}}{{validatorClass}};
+{{/validators}}
+{{/validatorClass}}
+
+{{#validatorClass}}
+// {{classname}} is a "Validator Class".  It's only use is to validate JSON input when
+// constructing a {{validatorClass}}.  Its only methods are "fromJson()" and getters:
+{{/validatorClass}}
+{{^validatorClass}}
+// "{{classname}}" is a model class.
+// It can be filled from {{#validators}}{{classname}}{{validatorClass}}, and {{/validators}}Json.
+{{/validatorClass}}
+
+class {{classname}} {
   public:
     {{classFilename}}();
-    ~{{classFilename}}();
+   ~{{classFilename}}();
 
-    Json toJson(bool expand);
     void fromJson(const Json& j);
+    {{^validatorClass}}
+    {{#validators}}
+    void from{{validatorClass}}(const {{classname}}{{validatorClass}}& {{validatorParam}});
+    {{/validators}}
+    Json toJson(bool expand);
+    {{/validatorClass}}
 
+    // Getters ----
     {{#vars}}
-    void {{setter}}(const {{{datatype}}}& {{name}}_);
-    {{{datatype}}} {{getter}}();
+    {{{datatype}}} {{getter}}() const { return {{name}}; }
     {{/vars}}
 
+    {{^validatorClass}}
+    // Setters ----
+    {{#vars}}
+    void {{setter}}({{#vendorExtensions.passByReference}}const {{/vendorExtensions.passByReference}}{{{datatype}}}{{#vendorExtensions.passByReference}}&{{/vendorExtensions.passByReference}} {{name}}_) { this->{{name}} = {{name}}_; }
+    {{/vars}}
+
+    {{/validatorClass}}
   private:
     {{#vars}}
     {{{datatype}}} {{name}};
     {{/vars}}
 };
-} 
-}
 {{/model}}
 {{/models}}
+
+}  // em namespace
+}  // foghorn namespace
