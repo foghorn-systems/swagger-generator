@@ -1,16 +1,12 @@
 
 #include <foghorn/em/api/rest/generated/api/{{classname}}.h>
-{{#imports}}
-#include <foghorn/em/api/rest/generated/model/{{import}}.h>
-{{/imports}}
-#include <foghorn/em/api/rest/rest.h>
 #include <foghorn/wire/rest.inl>
 
 namespace foghorn {
 namespace em {
 
 namespace rest = foghorn::wire::rest;
-using http_status_t = wire::rest::http_status_t;
+using http_status_t = rest::http_status_t;
 
 // -----------------------------------------------
 
@@ -73,35 +69,31 @@ void {{classname}}::{{operationId}} (const Request& req, Response& res) {
       std::cout << "Error reading request body [" << e.what() << "]" << std::endl;
       throw rest::Error(e.what(), http_status_t::bad_request);
    }
-
-   // Create a {{dataType}} from Json
-   {{dataType}} {{paramName}};
-   {{paramName}}.fromJson(jsonBody);
+   // Construct a {{dataType}} from the Json
+   {{dataType}} {{paramName}}(jsonBody);
 
    {{/bodyParams}}
    {{#responses}}
    {{#isDefault}}
-   // Call into the controller
-   {{#returnType}}{{{returnType}}} controllerRes = {{/returnType}}controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}});
+   // Call the controller method
+   {{#returnType}}{{{returnType}}} result = {{/returnType}}controller->{{operationId}}({{#allParams}}{{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}});
    {{#returnType}}
 
-   // Convert the {{{dataType}}} to json and return it
-   // (expand is hard coded)
+   // Convert the {{{returnType}}} to json and return it
    {{^containerType}}
-   Json responseJson = controllerRes->toJson(expand);
+   res.set_response(result.toJson());
    {{/containerType}}
    {{#containerType}}
    Json::array_t arr;
-   for (int i = 0; i < controllerRes.size(); ++i) {
-      {{baseType}}* el = controllerRes.at(i);
-      arr.push_back(el->toJson(expand));
+   for (int i = 0; i < result.size(); ++i) {
+      const {{baseType}}& element = result.at(i);
+      arr.push_back(element.toJson());
    }
-   Json responseJson { std::move(arr) };
+   res.set_response(Json { std::move(arr) });
    {{/containerType}}
-   res.set_response(responseJson);
    {{/returnType}}
    {{^returnType}}
-   res.set_response("");
+   res.set_empty_response();
    {{/returnType}}
    {{/isDefault}}
    {{/responses}}

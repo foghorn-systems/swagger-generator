@@ -3,7 +3,7 @@
 
 {{#models}}
 {{#model}}
-#include <foghorn/em/api/rest/generated/model/{{classname}}.h>
+#include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
 {{^validatorClass}}
 {{#validators}}
 #include <foghorn/em/api/rest/generated/model/{{classname}}{{validatorClass}}.h>
@@ -32,56 +32,234 @@ using Json = wire::json_t;
 // {{classname}}
 // --------------------------------------------------
 
-{{classname}}::{{classname}}() {}
-{{classname}}::~{{classname}}() {}
+{{classname}}::{{classname}}() { clear(); }
+{{classname}}::~{{classname}}() { clear(); }
+{{classname}}::{{classname}}(const {{classname}}& that) { copyFrom(that); }
+{{classname}}::{{classname}}(const Json& json) { copyFrom(json); }
+{{classname}}& {{classname}}::operator= (const {{classname}}& that) { copyFrom(that); }
 
-void {{classFilename}}::fromJson(const Json& j) {
+// --------------------------------------------------
+// clear
+// --------------------------------------------------
+
+void {{classname}}::clear() {
+   {{#vars}}
+   {{#isContainer}}
+   {{#isRef}}
+   { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
+   {{/isRef}}
+   {{name}}.clear();
+   {{/isContainer}}
+   {{^isContainer}}
+   {{#isJson}}
+   {{name}} = Json {};
+   {{/isJson}}
+   {{^isJson}}
+   {{#isRef}}
+   if ({{name}} != nullptr) {
+      delete {{name}};
+      {{name}} = nullptr;
+   }
+   {{/isRef}}
+   {{^isRef}}
+   {{name}} = {{{defaultValue}}};
+   {{/isRef}}
+   {{/isJson}}
+   {{/isContainer}}
+   {{/vars}}
+}
+
+// --------------------------------------------------
+// copyFrom or mergeFrom another {{classname}}
+// --------------------------------------------------
+
+void {{classname}}::copyFrom(const {{classname}}& that) {
+   clear();
+   mergeFrom(that);
+}
+
+void {{classname}}::mergeFrom(const {{classname}}& that) {
+   {{#vars}}
+   {{#isContainer}}
+   for (unsigned int i = 0; i < that.{{name}}.size(); i++) {
+      {{#isRef}}
+      {{name}}.push_back(new {{datatype}}(*(that.{{name}}[i]));
+      {{/isRef}}
+      {{^isRef}}
+      {{name}}.push_back(that.{{name}}[i]);
+      {{/isRef}}
+   }
+   {{/isContainer}}
+   {{^isContainer}}
+   {{#isRef}}
+   if (that.{{name}} != nullptr) {
+      {{{paramType}}} other = *(that.{{name}});
+      if ({{name}} == nullptr) {
+         {{name}} = new {{datatype}}(other);
+      } else {
+         {{name}}->copyFrom(other);
+      }
+   }
+   {{/isRef}}
+   {{^isRef}}
+   {{name}} = that.{{name}};
+   {{/isRef}}
+   {{/isContainer}}
+   {{/vars}}
+}
+
+// --------------------------------------------------
+// copyFrom or mergeFrom Json
+// --------------------------------------------------
+
+void {{classname}}::copyFrom(const Json& j) {
+   clear();
+   mergeFrom(j);
+}
+
+void {{classname}}::mergeFrom(const Json& j) {
    if (j.get_kind() != Json::object) {
-      throw rest::Error("{{classFilename}} body was not an object", http_status_t::bad_request);
+      throw rest::Error("{{classname}} body was not an object",
+         http_status_t::bad_request);
    }
    const Json::object_t& jobj = j.as<Json::object_t>();
    {{#vars}}
 
    // {{name}}
-   {{#isPrimitiveType}}
-   {{{datatype}}} {{name}}_ = {{{defaultValue}}};
-   auto {{name}}Iterator = jobj.find("{{name}}");
-   if ({{name}}Iterator != jobj.end()) {
-      {{^vendorExtensions.jsonType}}
-      {{name}}_ = {{name}}Iterator->second;
-      {{/vendorExtensions.jsonType}}
-      {{#vendorExtensions.jsonType}}
-      Json {{name}}Json = {{name}}Iterator->second;
-      if ({{name}}Json.get_kind() != Json::{{vendorExtensions.jsonType}}) {
-         throw rest::Error("{{classFilename}} property {{name}} was not a string", http_status_t::bad_request);
-      }
-      {{#isContainer}}
-      const std::vector<foghorn::wire::json_t>& {{name}}JsonArray = {{name}}Json.as<Json::array_t>();
-      for (unsigned int i=0; i< {{name}}JsonArray.size(); i++) {
-         foghorn::wire::json_t el = {{name}}JsonArray[i];
-         {{#items}}
-         if (el.get_kind() != Json::{{vendorExtensions.jsonType}}) {
-            throw rest::Error("{{classFilename}} property {{name}} item was not a string", http_status_t::bad_request);
-         }
-         {{name}}_.push_back(el.as<Json::{{vendorExtensions.jsonType}}_t>());
-         {{/items}}
-      }
-      {{/isContainer}}
-      {{^isContainer}}
-      {{name}}_ = {{name}}Json.as<Json::{{vendorExtensions.jsonType}}_t>();
-      {{/isContainer}}
-      {{/vendorExtensions.jsonType}}
-   }{{#required}} else {
-      throw rest::Error("{{classFilename}} missing required property \"{{name}}\"", http_status_t::bad_request);
-   }{{/required}}
-   {{name}} = {{name}}_;
-   {{/isPrimitiveType}}
-   {{^isPrimitiveType}}
-   // This pointer-type has to be set by the Controller
-   {{/isPrimitiveType}}
+   { auto iterator = jobj.find("{{name}}");
+     if (iterator != jobj.end()) {
+	const Json& json = iterator->second;
+	{{#isContainer}}
+        if (json.get_kind() != Json::array) {
+           throw rest::Error("{{classname}} property {{name}} was not an array",
+	      http_status_t::bad_request);
+        }
+	const Json::array_t& array = json.as<Json::array_t>();
+        for (unsigned int i = 0; i < array.size(); i++) {
+           const Json& itemJson = array[i];
+           {{#items}}
+           {{#isJson}}
+	   {{name}}.push_back(itemJson);
+           {{/isJson}}
+           {{^isJson}}
+           {{#isRef}}
+	   {{name}}.push_back(new {{datatype}}(itemJson));
+           {{/isRef}}
+           {{^isRef}}
+           if (itemJson.get_kind() != Json::{{jsonType}}) {
+              throw rest::Error("{{classname}} property {{name}} item was not {{jsonType}}",
+	         http_status_t::bad_request);
+           }
+           {{name}}.push_back(itemJson.as<Json::{{jsonType}}_t>());
+           {{/isRef}}
+           {{/isJson}}
+           {{/items}}
+	}
+	{{/isContainer}}
+	{{^isContainer}}
+        {{#isJson}}
+	{{name}} = json;
+        {{/isJson}}
+        {{^isJson}}
+        {{#isRef}}
+	if ({{name}} == nullptr) {
+           {{name}} = new {{datatype}}(json);
+        } else {
+           {{name}}->copyFrom(json);
+        }
+        {{/isRef}}
+        {{^isRef}}
+        if (json.get_kind() != Json::{{jsonType}}) {
+           throw rest::Error("{{classname}} property {{name}} was not {{jsonType}}",
+	      http_status_t::bad_request);
+        }
+        {{name}} = json.as<Json::{{jsonType}}_t>();
+        {{/isRef}}
+        {{/isJson}}
+	{{/isContainer}}
+     }{{#required}} else {
+        throw rest::Error("{{classFilename}} missing required property \"{{name}}\"",
+	   http_status_t::bad_request);
+     }{{/required}}
+   }
    {{/vars}}
 }
+
+// --------------------------------------------------
+// toJson or string
+// --------------------------------------------------
+
+std::string {{classname}}::toString() const {
+   return io::txt::to_string(toJson());
+}
+
+Json {{classname}}::toJson() const {
+   Json::object_t info;
+   {{#vars}}
+
+   // {{name}}
+   {{#isContainer}}
+   if (!{{name}}.empty()) {
+      Json::array_t arr;
+      for (unsigned int i = 0; i < {{name}}.size(); i++) {
+         {{#items}}
+         {{fieldType}} item = {{name}}[i];
+         {{#isJson}}
+	 arr.push_back(item);
+         {{/isJson}}
+         {{^isJson}}
+         {{#isRef}}
+         arr.push_back(item->toJson());
+         {{/isRef}}
+         {{^isRef}}
+         {{#isString}}
+         arr.push_back(Json { std::move(item) });
+         {{/isString}}
+         {{^isString}}
+         arr.push_back(Json { item });
+         {{/isString}}
+         {{/isRef}}
+         {{/isJson}}
+         {{/items}}
+      }
+      info["{{name}}"] = Json{ std::move(arr) };
+   }
+   {{/isContainer}}
+   {{^isContainer}}
+   {{#isJson}}
+   if ({{name}}.get_kind() != Json::null) {
+     info["{{name}}"] = {{name}};
+   }
+   {{/isJson}}
+   {{^isJson}}
+   {{#isRef}}
+   if ({{name}} != nullptr) {
+      info["{{name}}"] = {{name}}->toJson();
+   }
+   {{/isRef}}
+   {{^isRef}}
+   {{#isString}}
+   if ({{name}}.compare({{{defaultValue}}})) {
+      info["{{name}}"] = Json{ std::string({{name}}) };
+   }
+   {{/isString}}
+   {{^isString}}
+   if ({{name}} != {{{defaultValue}}}) {
+      info["{{name}}"] = Json{ {{name}} };
+   }
+   {{/isString}}
+   {{/isRef}}
+   {{/isJson}}
+   {{/isContainer}}
+   {{/vars}}
+
+   return Json{ std::move(info) };
+}
 {{^validatorClass}}
+
+// --------------------------------------------------
+// validators
+// --------------------------------------------------
 {{#validators}}
 
 void {{classname}}::from{{validatorClass}}(const {{classname}}{{validatorClass}}& {{validatorParam}}) {
@@ -93,43 +271,73 @@ void {{classname}}::from{{validatorClass}}(const {{classname}}{{validatorClass}}
    {{/validatorVars}}
 }
 {{/validators}}
-
-Json {{classname}}::toJson(bool expand) {
-   Json::object_t info;
-   {{#vars}}
-
-   // {{name}}
-   {{^isContainer}}
-   {{#isPrimitiveType}}
-   info["{{name}}"] = Json{ {{getter}}() };
-   {{/isPrimitiveType}}
-   {{^isPrimitiveType}}
-   if ({{name}} != nullptr) {
-      info["{{name}}"] = {{name}}->toJson(expand);
-   }
-   {{/isPrimitiveType}}
-   {{/isContainer}}
-   {{#isContainer}}
-   { Json::array_t arr;
-     for (auto i = {{name}}.begin(); i != {{name}}.end(); ++i) {
-        {{#isPrimitiveType}}
-        arr.push_back( Json { std::move(*i) } );
-        {{/isPrimitiveType}}
-        {{^isPrimitiveType}}
-	arr.push_back( (*i)->toJson(expand) );
-        {{/isPrimitiveType}}
-     }
-     info["{{name}}"] = Json{ std::move(arr) };
-   }
-   {{/isContainer}}
-   {{/vars}}
-   return Json{ std::move(info) };
-}
 {{/validatorClass}}
 
+// --------------------------------------------------
+// setters/getters
+// --------------------------------------------------
+{{#vars}}
+
+// {{name}}
+{{{datatype}}} {{classname}}::{{getter}}() const {
+   {{#isRef}}
+   {{^isContainer}}
+   return ({{name}} != nullptr) ? *{{name}} : {{datatype}}();
+   {{/isContainer}}
+   {{#isContainer}}
+   {{datatype}} result;
+   for (unsigned int i = 0; i < {{name}}.size(); i++) {
+      result.push_back(*({{name}}[i]));
+   }
+   return result;
+   {{/isContainer}}
+   {{/isRef}}
+   {{^isRef}}
+   return {{name}};
+   {{/isRef}}
+}
+void {{classname}}::{{setter}}({{{paramType}}} {{name}}_) {
+   {{#isRef}}
+   {{^isContainer}}
+   if ({{name}} == nullptr) {
+      {{name}} = new {{{datatype}}}({{name}}_);
+   } else {
+      {{name}}->copyFrom({{name}}_);
+   }
+   {{/isContainer}}
+   {{#isContainer}}
+   { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
+   {{name}}.clear();
+   for (unsigned int i = 0; i < {{name}}_.size(); i++) {
+      {{#items}}
+      {{name}}.push_back(new {{datatype}}({{name}}_[i]));
+      {{/items}}
+   }
+   {{/isContainer}}
+   {{/isRef}}
+   {{^isRef}}
+   {{name}} = {{name}}_;
+   {{/isRef}}
+}
+{{/vars}}
+
+{{#idPrefix}}
+// --------------------------------------------------
+// IDS
+// --------------------------------------------------
+
+// "{{classname}}" has an "id" field, so here's
+// a method to generate a sequence of unique ids:
+static int {{idPrefix}}_id_count = 1;
+std::string {{classname}}::newId() {
+   std::ostringstream ss;
+   ss << "{{idPrefix}}" << ({{idPrefix}}_id_count++);
+   return ss.str();
+}
+
+{{/idPrefix}}
 {{/model}}
 {{/models}}
-
 }  // em namespace
 }  // foghorn namespace
 

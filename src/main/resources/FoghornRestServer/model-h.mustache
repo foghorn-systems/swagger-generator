@@ -22,8 +22,7 @@ class {{classname}}{{validatorClass}};
 {{/validatorClass}}
 
 {{#validatorClass}}
-// {{classname}} is a "Validator Class".  It's only use is to validate JSON input when
-// constructing a {{validatorClass}}.  Its only methods are "fromJson()" and getters:
+// {{classname}} is a parameter class which stores the input to a REST method.
 {{/validatorClass}}
 {{^validatorClass}}
 // "{{classname}}" is a model class.
@@ -32,36 +31,46 @@ class {{classname}}{{validatorClass}};
 
 class {{classname}} {
   public:
-    {{classFilename}}();
-   ~{{classFilename}}();
+   {{classFilename}}();
+  ~{{classFilename}}();
+   {{classFilename}}(const {{classFilename}}& that);
+   {{classFilename}}(const Json& json);
+   {{classFilename}}& operator= (const {{classFilename}}& that);
 
-    void fromJson(const Json& j);
-    {{^validatorClass}}
-    {{#validators}}
-    void from{{validatorClass}}(const {{classname}}{{validatorClass}}& {{validatorParam}});
-    {{/validators}}
-    Json toJson(bool expand);
-    {{/validatorClass}}
+   std::string toString() const;
+   Json toJson() const;
 
-    // Getters ----
-    {{#vars}}
-    {{{datatype}}} {{getter}}() const { return {{name}}; }
-    {{/vars}}
+   void clear();
+   void copyFrom(const {{classname}}& that);
+   void mergeFrom(const {{classname}}& that);
+   void copyFrom(const Json& json);
+   void mergeFrom(const Json& json);
+   {{^validatorClass}}
 
-    {{^validatorClass}}
-    // Setters ----
-    {{#vars}}
-    void {{setter}}({{#vendorExtensions.passByReference}}const {{/vendorExtensions.passByReference}}{{{datatype}}}{{#vendorExtensions.passByReference}}&{{/vendorExtensions.passByReference}} {{name}}_) { this->{{name}} = {{name}}_; }
-    {{/vars}}
+   {{#validators}}
+   void from{{validatorClass}}(const {{classname}}{{validatorClass}}& {{validatorParam}});
+   {{/validators}}
+   {{/validatorClass}}
 
-    {{/validatorClass}}
+   {{#vars}}
+   // {{name}}
+   {{{datatype}}} {{getter}}() const;
+   void {{setter}}({{{paramType}}} {{name}});
+
+   {{/vars}}
   private:
-    {{#vars}}
-    {{{datatype}}} {{name}};
-    {{/vars}}
+   {{#vars}}
+   {{{fieldType}}} {{name}};
+   {{/vars}}
+   {{#idPrefix}}
+
+  public:
+   // This static method generates a sequence of unique ids:
+   static std::string newId();
+   {{/idPrefix}}
 };
+
 {{/model}}
 {{/models}}
-
 }  // em namespace
 }  // foghorn namespace

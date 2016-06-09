@@ -3,16 +3,17 @@
 #include <map>
 #include <vector>
 #include <sstream>
+
+{{#imports}}
+#include <foghorn/em/api/rest/generated/model/{{import}}.h>
+{{/imports}}
 #include <foghorn/wire/rest.h>
 
 namespace foghorn {
 namespace em {
 
-{{#imports}}
-class {{import}};
-{{/imports}}
-
 namespace rest = foghorn::wire::rest;
+using http_status_t = rest::http_status_t;
 using Request = foghorn::wire::rest::Request;
 using Response = foghorn::wire::rest::Response;
 
@@ -28,10 +29,8 @@ class {{classname}} {
         virtual ~Controller() {}
         {{#operations}}
 	{{#operation}}
-
         virtual {{^returnType}}void{{/returnType}}{{{returnType}}} {{operationId}}({{#allParams}}{{#vendorExtensions.passByReference}}const {{/vendorExtensions.passByReference}}{{{dataType}}}{{#vendorExtensions.passByReference}}&{{/vendorExtensions.passByReference}} {{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}}) {
-           throw rest::Error("Method Not Implemented",
-	      rest::http_status_t::not_implemented);
+           throw rest::Error("Method Not Implemented", http_status_t::not_implemented);
         }
         {{/operation}}
 	{{/operations}}
