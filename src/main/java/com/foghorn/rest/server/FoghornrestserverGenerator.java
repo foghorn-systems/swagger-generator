@@ -15,9 +15,13 @@ import io.swagger.codegen.CodegenModel;
 import io.swagger.codegen.CodegenModelType;
 import io.swagger.codegen.CodegenModelFactory;
 import io.swagger.codegen.CodegenProperty;
+import io.swagger.codegen.CodegenOperation;
 import io.swagger.codegen.CodegenParameter;
 import io.swagger.codegen.CodegenType;
 import io.swagger.codegen.DefaultCodegen;
+import io.swagger.models.Model;
+import io.swagger.models.Operation;
+import io.swagger.models.Swagger;
 import io.swagger.util.Json;
 import io.swagger.models.properties.ArrayProperty;
 import io.swagger.models.properties.BooleanProperty;
@@ -40,6 +44,9 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
        public List<Map<String,Object>> validators;
        public String idPrefix;
     }
+    public static class FoghornCodegenOperation extends CodegenOperation {
+       public String curlopMethod;
+    }
     public static class FoghornCodegenProperty extends CodegenProperty {
        public Boolean isJson;
        public Boolean isRef;
@@ -47,9 +54,6 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
        public String fieldType;
        public String paramType;
     }
-
-    // generation root packages
-    protected String rootGenPackage = "foghorn/em/api/rest/generated";
 
     // source folder where to write the files
     protected String sourceFolder = "";
@@ -103,6 +107,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 
 	CodegenModelFactory.setTypeMapping(CodegenModelType.MODEL, FoghornCodegenModel.class);
 	CodegenModelFactory.setTypeMapping(CodegenModelType.PROPERTY, FoghornCodegenProperty.class);
+	CodegenModelFactory.setTypeMapping(CodegenModelType.OPERATION, FoghornCodegenOperation.class);
 
         // set the output folder here
         outputFolder = "generated-code/FoghornRestServer";
@@ -121,26 +126,16 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
          * as with models, add multiple entries with different extensions for multiple files per
          * class
          */
-        apiTemplateFiles.put("api-cc.mustache", ".cc");
-        apiTemplateFiles.put("api-h.mustache", ".h");
-        apiTemplateFiles.put("proxy-cc.mustache", "Proxy.cc");
-        apiTemplateFiles.put("proxy-h.mustache", "Proxy.h");
+        apiTemplateFiles.put("client-cc.mustache", ".cc");
+        apiTemplateFiles.put("client-h.mustache", ".h");
+        apiTemplateFiles.put("server-cc.mustache", ".cc");
+        apiTemplateFiles.put("server-h.mustache", ".h");
 
         /**
          * Template Location.  This is the location which templates will be read from.  The generator
          * will use the resource stream to attempt to read the templates.
          */
         templateDir = "FoghornRestServer";
-
-        /**
-         * Api Package.  Optional, if needed, this can be used in templates
-         */
-        apiPackage = "api";
-
-        /**
-         * Model Package.  Optional, if needed, this can be used in templates
-         */
-        modelPackage = "model";
 
         /**
          * Additional Properties.  These values can be passed to the templates and
@@ -253,12 +248,19 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     }
 
     @Override
+    public CodegenOperation fromOperation(String path, String httpMethod, Operation operation, Map<String, Model> definitions, Swagger swagger) {
+       FoghornCodegenOperation op = (FoghornCodegenOperation) super.fromOperation(path, httpMethod, operation, definitions, swagger);
+       op.curlopMethod = httpMethod.equals("delete") ? "delete_req" : httpMethod;
+       return op;
+    }
+
+    @Override
     public CodegenParameter fromParameter(Parameter param, Set<String> imports) {
-        CodegenParameter parameter = super.fromParameter(param, imports);
-	if ((parameter.isPrimitiveType == null) || (parameter.isString != null)) {
+       CodegenParameter parameter = super.fromParameter(param, imports);
+       if ((parameter.isPrimitiveType == null) || (parameter.isString != null)) {
            parameter.vendorExtensions.put("passByReference", "true");
-	}
-        return parameter;
+       }
+       return parameter;
     }
 
     @Override
@@ -396,20 +398,26 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     }
 
     /**
-     * Location to write model files.  You can use the modelPackage() as defined when the class is
-     * instantiated
+     * Location to write model files.
      */
+    @Override
     public String modelFileFolder() {
-        return outputFolder + "/" + sourceFolder + "/" + modelPackage().replace('.', File.separatorChar);
+        return outputFolder + "/model";
     }
 
     /**
-     * Location to write api files.  You can use the apiPackage() as defined when the class is
-     * instantiated
+     * Location to write api files.  If the template is called "foo-cc.mustache",
+     * it will go in the "foo" subdirectory.
      */
     @Override
     public String apiFileFolder() {
-        return outputFolder + "/" + sourceFolder + "/" + apiPackage().replace('.', File.separatorChar);
+        return outputFolder;
+    }
+    @Override
+    public String apiFilename(String templateName, String tag) {
+       String suffix = apiTemplateFiles().get(templateName);
+       String subdir = templateName.substring(0, templateName.indexOf('-'));
+       return apiFileFolder() + "/" + subdir + "/" + toApiFilename(tag) + suffix;
     }
 
     /**

@@ -1,5 +1,5 @@
 
-#include <foghorn/em/api/rest/generated/api/{{classname}}.h>
+#include <foghorn/em/api/rest/generated/server/{{classname}}.h>
 #include <foghorn/wire/rest.inl>
 
 namespace foghorn {
@@ -16,7 +16,7 @@ using http_status_t = rest::http_status_t;
 void {{classname}}::add_handlers (rest::Dispatcher& rest) {
   {{#operations}}
   {{#operation}}
-  rest.addHandler("{{path}}", rest::{{httpMethod}}, this, &{{classname}}::{{operationId}});
+  rest.addHandler("{{basePathWithoutHost}}{{path}}", rest::{{httpMethod}}, this, &{{classname}}::{{operationId}});
   {{/operation}}
   {{/operations}}
 }

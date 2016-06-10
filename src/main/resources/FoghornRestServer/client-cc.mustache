@@ -1,0 +1,98 @@
+
+#include <iostream>
+
+#include <foghorn/em/api/rest/generated/client/{{classname}}.h>
+#include <foghorn/wire/json.inl>
+// #include <foghorn/wire/curlop.h>
+
+namespace foghorn {
+namespace em {
+
+// -----------------------------------------------
+
+{{classname}}::{{classname}} (const std::string& serverHostPort_):
+  serverHostPort(serverHostPort_) {}
+
+{{#operations}}
+{{#operation}}
+// ----------------------------------------------
+// {{operationId}}
+// {{httpMethod}} "{{path}}"
+//
+// {{notes}}
+// ----------------------------------------------
+{{^returnType}}void{{/returnType}}{{{returnType}}} {{classname}}::{{operationId}}({{#allParams}}{{#vendorExtensions.passByReference}}const {{/vendorExtensions.passByReference}}{{{dataType}}}{{#vendorExtensions.passByReference}}&{{/vendorExtensions.passByReference}} {{paramName}}{{#hasMore}}, {{/hasMore}}{{/allParams}}) {
+
+   // Assemble the URL we're going to talk to:
+   std::ostringstream urlSs;
+   urlSs << serverHostPort << "{{basePathWithoutHost}}{{path}}";
+   {{#hasPathParams}}
+   std::string baseUrl = urlSs.str();
+   {{#pathParams}}
+   { std::string tpl = "{""{{paramName}}""}";
+     auto start_pos = baseUrl.find(tpl);
+     if (start_pos != std::string::npos) {
+        baseUrl = baseUrl.replace(start_pos, tpl.length(), {{paramName}});
+   }}
+   {{/pathParams}}
+   urlSs.str(baseUrl);
+   {{/hasPathParams}}
+   {{#queryParams}}
+   {{#isBoolean}}
+   if ({{paramName}} != {{defaultValue}}) {
+      urlSs << "?{{paramName}}=" << {{paramName}};
+   }
+   {{/isBoolean}}
+   {{#isString}}
+   if ({{paramName}}.compare({{defaultValue}})) {
+      // TODO: any unusual chars in {{paramName}} should be URL-ESCAPED into %XX things
+      urlSs << "?{{paramName}}=" << {{paramName}};
+   }
+   {{/isString}}
+   {{/queryParams}}
+
+   std::string url = urlSs.str();
+   {{#bodyParams}}
+   std::string body = {{paramName}}.toString();
+   {{/bodyParams}}
+
+   std::cout << "We want to do a {{httpMethod}} request to \"" << url << "\"\n";
+   {{#bodyParams}}
+   std::cout << "The body we are sending is: " << body << "\n";
+   {{/bodyParams}}
+   {{#responses}}
+   {{#isDefault}}
+
+   // Make a {{httpMethod}} request with "curlop":
+   //
+   // curlop curl_op { url, curlop::VERIFY_PEER::NO, curlop::HOSTNAME_VERIFICATION::NO};
+   // curlop::curlop_http_response ret = curlOp.{{curlopMethod}}({{#hasBodyParam}}body{{/hasBodyParam}});
+   {{#returnType}}
+   std::string responseBody/*   = ret.body  */;
+
+   // Convert the body into Json.
+   Json jsonBody = io::txt::from_string<Json>(responseBody);
+
+   {{^containerType}}
+   // Return a {{{returnType}}} constructed from the Json
+   return {{{returnType}}}(jsonBody);
+   {{/containerType}}
+   {{#containerType}}
+   // Build a vector of {{{baseType}}} constructed from the Json
+   std::vector<{{baseType}}> result;
+   const Json::array_t& jsonArray = jsonBody.as<Json::array_t>();
+   for (int i = 0; i < jsonArray.size(); ++i) {
+      result.push_back({{baseType}}(jsonArray.at(i)));
+   }
+   return result;
+   {{/containerType}}
+   {{/returnType}}
+   {{/isDefault}}
+   {{/responses}}
+}
+
+{{/operation}}
+{{/operations}}
+}  // em
+}  // foghorn
+
