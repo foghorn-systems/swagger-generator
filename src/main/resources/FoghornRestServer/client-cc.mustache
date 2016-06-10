@@ -3,10 +3,12 @@
 
 #include <foghorn/em/api/rest/generated/client/{{classname}}.h>
 #include <foghorn/wire/json.inl>
-// #include <foghorn/wire/curlop.h>
+#include <foghorn/wire/curlop.h>
 
 namespace foghorn {
 namespace em {
+
+using namespace wire;
 
 // -----------------------------------------------
 
@@ -50,7 +52,6 @@ namespace em {
    }
    {{/isString}}
    {{/queryParams}}
-
    std::string url = urlSs.str();
    {{#bodyParams}}
    std::string body = {{paramName}}.toString();
@@ -65,10 +66,10 @@ namespace em {
 
    // Make a {{httpMethod}} request with "curlop":
    //
-   // curlop curl_op { url, curlop::VERIFY_PEER::NO, curlop::HOSTNAME_VERIFICATION::NO};
-   // curlop::curlop_http_response ret = curlOp.{{curlopMethod}}({{#hasBodyParam}}body{{/hasBodyParam}});
+   curlop curl_op { url, {}, curlop::VERIFY_PEER::NO, curlop::HOSTNAME_VERIFICATION::NO};
+   {{#returnType}}curlop::curlop_http_resp ret = {{/returnType}}curl_op.{{curlopMethod}}({{#hasBodyParam}}body{{/hasBodyParam}});
    {{#returnType}}
-   std::string responseBody/*   = ret.body  */;
+   std::string responseBody = ret.body;
 
    // Convert the body into Json.
    Json jsonBody = io::txt::from_string<Json>(responseBody);
