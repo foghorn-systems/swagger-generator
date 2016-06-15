@@ -42,7 +42,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     public static class FoghornCodegenModel extends CodegenModel {
        public String validatorClass;
        public List<Map<String,Object>> validators;
-       public String idPrefix;
+       public Boolean hasBarePtrs;
     }
     public static class FoghornCodegenOperation extends CodegenOperation {
        public String curlopMethod;
@@ -180,12 +180,11 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
                 fhcm.validatorClass = fhcm.name.substring(0, fhcm.name.length() - suffix.length());
 	     }
 	  }
-
-	  // Check if this model has an "id" field.  If so, we'll write a "nextId()" method
 	  for (CodegenProperty var : fhcm.vars) {
-	     if (var.name.equals("id") && var.datatype.equals("std::string")) {
-	       fhcm.idPrefix = camelize(fhcm.name, true);
-	       break;
+	     FoghornCodegenProperty fvar = (FoghornCodegenProperty) var;
+	     // If this model has non-container refs, we add a "nullPtrs" method.
+	     if ((fvar.isRef == Boolean.TRUE) && (fvar.isNotContainer == Boolean.TRUE)) {
+	       fhcm.hasBarePtrs = true;
 	     }
 	  }
        }

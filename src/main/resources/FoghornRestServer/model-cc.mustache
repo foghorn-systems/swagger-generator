@@ -32,7 +32,14 @@ using Json = wire::json_t;
 // {{classname}}
 // --------------------------------------------------
 
-{{classname}}::{{classname}}() {
+{{classname}}::{{classname}}() { {{#hasBarePtrs}}nullPtrs(); {{/hasBarePtrs}}clear(); }
+{{classname}}::{{classname}}(const {{classname}}& that) { {{#hasBarePtrs}}nullPtrs(); {{/hasBarePtrs}}copyFrom(that); }
+{{classname}}::{{classname}}(const Json& json) { {{#hasBarePtrs}}nullPtrs(); {{/hasBarePtrs}}copyFrom(json); }
+{{classname}}& {{classname}}::operator= (const {{classname}}& that) { copyFrom(that); return *this; }
+{{classname}}::~{{classname}}() { clear(); }
+{{#hasBarePtrs}}
+
+void {{classname}}::nullPtrs() {
    {{#vars}}
    {{^isContainer}}
    {{#isRef}}
@@ -40,12 +47,8 @@ using Json = wire::json_t;
    {{/isRef}}
    {{/isContainer}}
    {{/vars}}
-   clear();
 }
-{{classname}}::{{classname}}(const {{classname}}& that) { copyFrom(that); }
-{{classname}}::{{classname}}(const Json& json) { copyFrom(json); }
-{{classname}}& {{classname}}::operator= (const {{classname}}& that) { copyFrom(that); return *this; }
-{{classname}}::~{{classname}}() { clear(); }
+{{/hasBarePtrs}}
 
 // --------------------------------------------------
 // clear
@@ -331,54 +334,6 @@ void {{classname}}::from{{validatorClass}}(const {{classname}}{{validatorClass}}
 }
 {{/vars}}
 
-{{#idPrefix}}
-// --------------------------------------------------
-// IDS
-// --------------------------------------------------
-
-{{{classname}}} {{classname}}::copyAllFieldsOrJustId (bool justId) const {
-   return justId ? {{classname}}().setId(id) : (*this);
-}
-
-{{classname}}Manager::{{classname}}Manager() {
-   id_count = 1;
-}
-
-std::string {{classname}}Manager::makeNewId() {
-   std::ostringstream ss;
-   ss << "{{idPrefix}}" << (id_count++);
-   return ss.str();
-}
-
-{{classname}}& {{classname}}Manager::getOrThrow(const std::string& id) {
-   auto iterator = map.find(id);
-   if (iterator == map.end()) {
-      std::ostringstream ss;
-      ss << "{{classname}} with id \"" << id << "\" not found.";
-      throw rest::Error(ss.str(), http_status_t::not_found);
-   }
-   return iterator->second;
-}
-
-void {{classname}}Manager::insert(const std::string& id, const {{classname}}& value) {
-   map.insert(std::make_pair(id, value));
-}
-void {{classname}}Manager::remove(const std::string& id) {
-   map.erase(map.find(id));
-}
-
-{{classname}} {{classname}}Manager::getOne (const std::string& id, bool expand) {
-   return getOrThrow(id).copyAllFieldsOrJustId(!expand);
-}
-std::vector<{{classname}}> {{classname}}Manager::getAll (bool expand) {
-  std::vector<{{classname}}> result;
-  for (auto it = map.begin(); it != map.end(); ++it) {
-     result.push_back(it->second.copyAllFieldsOrJustId(!expand));
-  }
-  return result;
-}
-
-{{/idPrefix}}
 {{/model}}
 {{/models}}
 }  // em namespace

@@ -62,36 +62,12 @@ class {{classname}} {
    {{#vars}}
    {{{fieldType}}} {{name}};
    {{/vars}}
-   {{#idPrefix}}
+   {{#hasBarePtrs}}
 
-  public:
-   // This class has an "ID" field, so here's a method that will
-   // produce a {{classname}} instance with a copy of our ID field:
-   {{classname}} copyAllFieldsOrJustId (bool justId) const;
-   {{/idPrefix}}
+   void nullPtrs();
+   {{/hasBarePtrs}}
 };
 
-{{#idPrefix}}
-// This class has some common operations for an { ID -> {{classname}} } map:
-
-class {{classname}}Manager {
-  public:
-    {{classname}}Manager();
-    std::string makeNewId();
-
-    {{classname}}& getOrThrow(const std::string& id);
-    void insert(const std::string& id, const {{classname}}& value);
-    void remove(const std::string& id);
-
-    {{classname}} getOne (const std::string& id, bool expand);
-    std::vector<{{classname}}> getAll (bool expand);
-
-  private:
-    int id_count;
-    std::map<std::string, {{classname}}> map;
-};
-
-{{/idPrefix}}
 {{/model}}
 {{/models}}
 }  // em namespace
