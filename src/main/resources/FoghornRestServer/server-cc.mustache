@@ -61,16 +61,16 @@ void {{classname}}::{{operationId}} (const Request& req, Response& res) {
    std::string body = req.get_body();
    std::cout << "{{operationId}} body: [" << body << "]" << std::endl;
 
-   // Convert the body into Json.
-   Json jsonBody;
+   // Construct a {{dataType}} from the body
+   {{dataType}} {{paramName}};
    try {
-      jsonBody = io::txt::from_string<Json>(body);
+      // Convert the body into Json and pass it into the "copyFrom" method:
+      {{paramName}}.copyFrom(io::txt::from_string<Json>(body));
    } catch (std::exception& e) {
-      std::cout << "Error reading request body [" << e.what() << "]" << std::endl;
+      std::cout << "Error constructing {{dataType}} from request body ["
+                << e.what() << "]" << std::endl;
       throw rest::Error(e.what(), http_status_t::bad_request);
    }
-   // Construct a {{dataType}} from the Json
-   {{dataType}} {{paramName}}(jsonBody);
 
    {{/bodyParams}}
    {{#responses}}

@@ -48,6 +48,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
        public String curlopMethod;
     }
     public static class FoghornCodegenProperty extends CodegenProperty {
+       public String tester;
        public Boolean isJson;
        public Boolean isRef;
        public String jsonType;
@@ -350,6 +351,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
            property.paramType = property.datatype;
         }
 
+        property.tester = "has" + getterAndSetterCapitalize(property.name);
         return property;
     }
 
