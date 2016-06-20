@@ -66,6 +66,7 @@ void {{classname}}::{{operationId}} (const Request& req, Response& res) {
    try {
       // Convert the body into Json and pass it into the "copyFrom" method:
       {{paramName}}.copyFrom(io::txt::from_string<Json>(body));
+      {{paramName}}.throwIfMissingRequiredFields();
    } catch (std::exception& e) {
       std::cout << "Error constructing {{dataType}} from request body ["
                 << e.what() << "]" << std::endl;

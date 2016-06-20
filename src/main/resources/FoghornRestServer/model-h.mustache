@@ -39,6 +39,7 @@ class {{classname}} {
 
    std::string toString() const;
    Json toJson() const;
+   void throwIfMissingRequiredFields() const;
 
    void clear();
    void copyFrom(const {{classname}}& that);

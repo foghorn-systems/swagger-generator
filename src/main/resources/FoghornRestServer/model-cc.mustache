@@ -183,9 +183,7 @@ void {{classname}}::mergeFrom(const Json& j) {
         {{/isRef}}
         {{/isJson}}
 	{{/isContainer}}
-     }{{#required}} else {
-        throw std::runtime_error("{{classFilename}} missing required property \"{{name}}\"");
-     }{{/required}}
+     }
    }
    {{/vars}}
 }
@@ -251,6 +249,16 @@ Json {{classname}}::toJson() const {
    {{/vars}}
 
    return Json{ std::move(info) };
+}
+
+void {{classname}}::throwIfMissingRequiredFields() const {
+  {{#vars}}
+  {{#required}}
+  if (!{{tester}}()) {
+    throw std::runtime_error("{{classname}} missing required property \"{{name}}\"");
+  }
+  {{/required}}
+  {{/vars}}
 }
 {{^validatorClass}}
 
