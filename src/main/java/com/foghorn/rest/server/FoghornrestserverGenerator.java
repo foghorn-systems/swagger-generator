@@ -231,7 +231,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	     List<Map<String,String>> varsToCopy = new ArrayList<Map<String,String>>();
              for (CodegenProperty targetProperty : targetClass.vars) {
 	        CodegenProperty sourceProperty = modelVars.get(targetProperty.baseName);
-		if (sourceProperty != null) {
+		if ((sourceProperty != null) &&
+		    (sourceProperty.datatype.equals(targetProperty.datatype))) {
 		   Map<String,String> varToCopy = new HashMap<String,String>();
 		   varToCopy.put("getter", sourceProperty.getter);
 		   varToCopy.put("setter", targetProperty.setter);
