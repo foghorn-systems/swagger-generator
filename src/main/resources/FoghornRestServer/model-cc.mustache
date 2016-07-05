@@ -94,12 +94,14 @@ void {{classname}}::mergeFrom(const {{classname}}& that) {
    if (that.{{tester}}()) {
       {{#isContainer}}
       for (unsigned int i = 0; i < that.{{name}}.size(); i++) {
+         {{#items}}
          {{#isRef}}
-         {{name}}.push_back(new {{datatype}}(*(that.{{name}}[i]));
+         {{name}}.push_back(new {{datatype}}(*(that.{{name}}[i])));
          {{/isRef}}
          {{^isRef}}
          {{name}}.push_back(that.{{name}}[i]);
          {{/isRef}}
+         {{/items}}
       }
       {{/isContainer}}
       {{^isContainer}}
@@ -313,7 +315,7 @@ bool {{classname}}::{{tester}}() const {
    return ({{name}} != nullptr) ? *{{name}} : {{datatype}}();
    {{/isContainer}}
    {{#isContainer}}
-   {{datatype}} result;
+   {{{datatype}}} result;
    for (unsigned int i = 0; i < {{name}}.size(); i++) {
       result.push_back(*({{name}}[i]));
    }
