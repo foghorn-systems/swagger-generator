@@ -178,10 +178,12 @@ void {{classname}}::mergeFrom(const Json& j) {
         }
         {{/isRef}}
         {{^isRef}}
-        if (json.get_kind() != Json::{{jsonType}}) {
-           throw std::runtime_error("{{classname}} property {{name}} was not {{jsonType}}");
+        if (json.get_kind() != Json::null ) {
+           if (json.get_kind() != Json::null && json.get_kind() != Json::{{jsonType}}) {
+             throw std::runtime_error("{{classname}} property {{name}} was not {{jsonType}}");
+           }
+            {{name}} = json.as<Json::{{jsonType}}_t>();
         }
-        {{name}} = json.as<Json::{{jsonType}}_t>();
         {{/isRef}}
         {{/isJson}}
 	{{/isContainer}}
