@@ -295,6 +295,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     private boolean isSimpleType(Property p) {
       return (p instanceof BooleanProperty) ||  // field type bool
 	     (p instanceof IntegerProperty) ||  // field type int
+               (p instanceof BaseIntegerProperty) ||  // field type int
 	     (p instanceof LongProperty)    ||  // field type long
 	     (p instanceof FloatProperty)   ||  // field type float
 	     (p instanceof DoubleProperty)  ||  // field type double
@@ -306,7 +307,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     @Override
     public CodegenProperty fromProperty(String name, Property p) {
         FoghornCodegenProperty property = (FoghornCodegenProperty) super.fromProperty(name, p);
-
+        System.out.println("processing property " +  name + ": "  + p);
         // The swagger specification supports a lot of different types for Properties,
 	// but this code can only translate a subset of them into C++.
 	// So throw an exception if the type is something we know isn't going to work:
@@ -316,8 +317,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	     "has unexpected Property class \"" + p.getClass().getName() + "\"");
 	}
 	if (p instanceof MapProperty) {
-	   throw new RuntimeException("Property \"" + p.getName() + "\" " +
-	     "is a MapProperty.  Sorry Map implementation not complete yet.");
+	   //throw new RuntimeException("Property \"" + p.getName() + "\" " +
+	   //  "is a MapProperty.  Sorry Map implementation not complete yet.");
 	}
 	if ((p instanceof ArrayProperty) &&
 	    !isSimpleType(((ArrayProperty) p).getItems())) {
@@ -366,6 +367,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	if ((p instanceof DoubleProperty) ||
             (p instanceof FloatProperty) ||
             (p instanceof IntegerProperty) ||
+            (p instanceof BaseIntegerProperty) ||
             (p instanceof LongProperty)) {
 	    return "number";
         }
