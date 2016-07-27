@@ -15,11 +15,11 @@ class {{import}};
 {{/imports}}
 {{#models}}
 {{#model}}
-{{^validatorClass}}
+{{#hasValidators}}
 {{#validators}}
 class {{classname}}{{validatorClass}};
 {{/validators}}
-{{/validatorClass}}
+{{/hasValidators}}
 
 {{#validatorClass}}
 // {{classname}} is a parameter class which stores the input to a REST method.

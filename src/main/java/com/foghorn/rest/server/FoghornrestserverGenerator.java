@@ -41,6 +41,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 
     public static class FoghornCodegenModel extends CodegenModel {
        public String validatorClass;
+       public Boolean hasValidators;
        public List<Map<String,Object>> validators;
        public Boolean hasBarePtrs;
     }
@@ -105,6 +106,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 
 	this.importMapping.clear();
         this.importMapping.put("Error", null);
+        this.importMapping.put("JsonSchema", null);
 
 	CodegenModelFactory.setTypeMapping(CodegenModelType.MODEL, FoghornCodegenModel.class);
 	CodegenModelFactory.setTypeMapping(CodegenModelType.PROPERTY, FoghornCodegenProperty.class);
@@ -243,6 +245,7 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
                 validator.put("validatorVars", varsToCopy);
 	     }
 	     targetClass.validators.add(validator);
+	     targetClass.hasValidators = true;
 	  }
        }
        return objs;
@@ -272,7 +275,11 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 
         if (p instanceof StringProperty) {
             StringProperty sp = (StringProperty) p;
-            return null == sp.getDefault() ? "\"\"" : sp.getDefault();
+            String content = ((sp.getDefault() == null) ? "" : sp.getDefault());
+            content = content.replaceAll("\\\\", "\\\\\\\\");
+            content = content.replaceAll("\"", "\\\\\"");
+            return "\"" + content + "\"";
+
         } else if (p instanceof BooleanProperty) {
             BooleanProperty bp = (BooleanProperty) p;
             return bp.getDefault() != null ? bp.getDefault().toString() : "false";
@@ -295,7 +302,6 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     private boolean isSimpleType(Property p) {
       return (p instanceof BooleanProperty) ||  // field type bool
 	     (p instanceof IntegerProperty) ||  // field type int
-               (p instanceof BaseIntegerProperty) ||  // field type int
 	     (p instanceof LongProperty)    ||  // field type long
 	     (p instanceof FloatProperty)   ||  // field type float
 	     (p instanceof DoubleProperty)  ||  // field type double
@@ -307,18 +313,22 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
     @Override
     public CodegenProperty fromProperty(String name, Property p) {
         FoghornCodegenProperty property = (FoghornCodegenProperty) super.fromProperty(name, p);
-        System.out.println("processing property " +  name + ": "  + p);
+
         // The swagger specification supports a lot of different types for Properties,
 	// but this code can only translate a subset of them into C++.
 	// So throw an exception if the type is something we know isn't going to work:
 
         if (!isSimpleType(p) && !(p instanceof MapProperty) && !(p instanceof ArrayProperty)) {
 	   throw new RuntimeException("Property \"" + p.getName() + "\" " +
-	     "has unexpected Property class \"" + p.getClass().getName() + "\"");
+	     "has unexpected Property class \"" + p.getClass().getName() + "\"" +
+	     (!(p instanceof BaseIntegerProperty) ? "" : (" You might fix this by " +
+	     "adding a \"format\":\"int32\" or \"format\":\"int64\" specification!")));
 	}
-	if (p instanceof MapProperty) {
-	   //throw new RuntimeException("Property \"" + p.getName() + "\" " +
-	   //  "is a MapProperty.  Sorry Map implementation not complete yet.");
+
+	if ((p instanceof MapProperty) &&
+	    !isSimpleType(((MapProperty) p).getAdditionalProperties())) {
+           throw new RuntimeException("Property \"" + p.getName() + "\" " +
+	     "is a map-of-array or map-of-map.  Not implemented.");
 	}
 	if ((p instanceof ArrayProperty) &&
 	    !isSimpleType(((ArrayProperty) p).getItems())) {
@@ -326,17 +336,27 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	     "is an array-of-array or array-of-map.  Not implemented.");
 	}
 
+	// Fix a problem with map field naming
+
+	if (p instanceof MapProperty) {
+           property.items.name = property.name;
+	}
+
 	// Set custom booleans "isRef" and "isJson"
 
-	if ((p instanceof RefProperty) ||
-	    ((p instanceof ArrayProperty)
-	      && ((ArrayProperty)p).getItems() instanceof RefProperty)) {
-	   property.isRef = true;
-	}
-	if ((p instanceof ObjectProperty) ||
-	    ((p instanceof ArrayProperty)
-	      && ((ArrayProperty)p).getItems() instanceof ObjectProperty)) {
+	if (isJson(p) ||
+	    ((p instanceof ArrayProperty) && isJson(((ArrayProperty)p).getItems())) ||
+	    ((p instanceof MapProperty) && isJson(((MapProperty)p).getAdditionalProperties()))) {
 	   property.isJson = true;
+
+	} else {
+	   if ((p instanceof RefProperty) ||
+	       ((p instanceof ArrayProperty)
+	         && ((ArrayProperty)p).getItems() instanceof RefProperty) ||
+	       ((p instanceof MapProperty)
+	         && ((MapProperty)p).getAdditionalProperties() instanceof RefProperty)) {
+	     property.isRef = true;
+	   }
 	}
 
 	// Set custom fields "jsonType", "fieldType", "paramType"
@@ -347,7 +367,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	if ((p instanceof ObjectProperty) ||
             (p instanceof RefProperty) ||
             (p instanceof StringProperty) ||
-            (p instanceof ArrayProperty)) {
+            (p instanceof ArrayProperty) ||
+            (p instanceof MapProperty)) {
 	   property.paramType = "const " + property.datatype + "&";
 	} else {
            property.paramType = property.datatype;
@@ -367,7 +388,6 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	if ((p instanceof DoubleProperty) ||
             (p instanceof FloatProperty) ||
             (p instanceof IntegerProperty) ||
-            (p instanceof BaseIntegerProperty) ||
             (p instanceof LongProperty)) {
 	    return "number";
         }
@@ -384,10 +404,21 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
             MapProperty mp = (MapProperty) p;
             Property inner = mp.getAdditionalProperties();
             typeDecl = typeDecl + "<std::string, " + getFieldDeclaration(inner) + ">";
-        } else if (p instanceof RefProperty) {
+        } else if ((p instanceof RefProperty) && !isJson(p)) {
             typeDecl = typeDecl + "*";
 	}
         return typeDecl;
+    }
+
+    private boolean isJson(Property p) {
+       if (p instanceof RefProperty) {
+         String refName = ((RefProperty)p).get$ref();
+         if (refName.indexOf("#/definitions/") == 0) {
+            refName = refName.substring("#/definitions/".length());
+            if (refName.startsWith("Json")) return true;
+	 }
+       }
+       return (p instanceof ObjectProperty);
     }
 
     /**
@@ -456,6 +487,8 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
      */
     @Override
     public String getSwaggerType(Property p) {
+	if (isJson(p)) return "Json";
+
         String swaggerType = super.getSwaggerType(p);
         if (typeMapping.containsKey(swaggerType)) {
             return typeMapping.get(swaggerType);

@@ -4,11 +4,11 @@
 {{#models}}
 {{#model}}
 #include <foghorn/em/api/rest/generated/model/{{classFilename}}.h>
-{{^validatorClass}}
+{{#hasValidators}}
 {{#validators}}
 #include <foghorn/em/api/rest/generated/model/{{classname}}{{validatorClass}}.h>
 {{/validators}}
-{{/validatorClass}}
+{{/hasValidators}}
 {{/model}}
 {{/models}}
 {{#imports}}
@@ -55,7 +55,12 @@ void {{classname}}::clear() {
    {{#vars}}
    {{#isContainer}}
    {{#isRef}}
+   {{^isMapContainer}}
    { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
+   {{/isMapContainer}}
+   {{#isMapContainer}}
+   { for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) delete it->second; }
+   {{/isMapContainer}}
    {{/isRef}}
    {{name}}.clear();
    {{/isContainer}}
@@ -93,6 +98,7 @@ void {{classname}}::mergeFrom(const {{classname}}& that) {
    // {{name}}
    if (that.{{tester}}()) {
       {{#isContainer}}
+      {{^isMapContainer}}
       for (unsigned int i = 0; i < that.{{name}}.size(); i++) {
          {{#items}}
          {{#isRef}}
@@ -103,6 +109,25 @@ void {{classname}}::mergeFrom(const {{classname}}& that) {
          {{/isRef}}
          {{/items}}
       }
+      {{/isMapContainer}}
+      {{#isMapContainer}}
+      for(auto thatIt = that.fields.begin(); thatIt != that.fields.end(); thatIt++) {
+         const std::string& key = thatIt->first;
+         {{#items}}
+         {{#isRef}}
+         auto thisIt = {{name}}.find(key);
+         if (thisIt != {{name}}.end()) {
+            thisIt->second->mergeFrom(*thatIt->second);
+         } else {
+            {{name}}.insert(std::make_pair(key, new {{datatype}}(*thatIt->second)));
+         }
+         {{/isRef}}
+         {{^isRef}}
+         {{name}}.insert(std::make_pair(key, thatIt->second));
+         {{/isRef}}
+         {{/items}}
+      }
+      {{/isMapContainer}}
       {{/isContainer}}
       {{^isContainer}}
       {{#isRef}}
@@ -140,51 +165,86 @@ void {{classname}}::mergeFrom(const Json& j) {
    { auto iterator = jobj.find("{{name}}");
      if (iterator != jobj.end()) {
 	const Json& json = iterator->second;
-	{{#isContainer}}
-        if (json.get_kind() != Json::array) {
-           throw std::runtime_error("{{classname}} property {{name}} was not an array");
-        }
-	const Json::array_t& array = json.as<Json::array_t>();
-        for (unsigned int i = 0; i < array.size(); i++) {
-           const Json& itemJson = array[i];
-           {{#items}}
+        if (json.get_kind() != Json::null) {
+           {{#isContainer}}
+           {{^isMapContainer}}
+           if (json.get_kind() != Json::array) {
+              throw std::runtime_error("{{classname}} property {{name}} was not an array");
+           }
+           const Json::array_t& array = json.as<Json::array_t>();
+           for (unsigned int i = 0; i < array.size(); i++) {
+              const Json& itemJson = array[i];
+              {{#items}}
+              {{#isJson}}
+              {{name}}.push_back(itemJson);
+              {{/isJson}}
+              {{^isJson}}
+              {{#isRef}}
+              {{name}}.push_back(new {{datatype}}(itemJson));
+              {{/isRef}}
+              {{^isRef}}
+              if (itemJson.get_kind() != Json::{{jsonType}}) {
+                 throw std::runtime_error("{{classname}} property {{name}} item was not {{jsonType}}");
+              }
+              {{name}}.push_back(itemJson.as<Json::{{jsonType}}_t>());
+              {{/isRef}}
+              {{/isJson}}
+              {{/items}}
+           }
+           {{/isMapContainer}}
+           {{#isMapContainer}}
+           if (json.get_kind() != Json::object) {
+              throw std::runtime_error("{{classname}} property {{name}} was not an object");
+           }
+           const Json::object_t& map = json.as<Json::object_t>();
+           for (auto it = map.begin(); it != map.end(); it++) {
+              const std::string& key = it->first;
+              const Json& valueJson = it->second;
+              {{#items}}
+              {{#isJson}}
+              {{name}}.insert(std::make_pair(key, valueJson));
+              {{/isJson}}
+              {{^isJson}}
+              {{#isRef}}
+              auto thisIterator = {{name}}.find(key);
+              if (thisIterator != {{name}}.end()) {
+                 thisIterator->second->mergeFrom(valueJson);
+              } else {
+                 {{name}}.insert(std::make_pair(key, new {{datatype}}(valueJson)));
+              }
+              {{/isRef}}
+              {{^isRef}}
+              if (itemJson.get_kind() != Json::{{jsonType}}) {
+                 throw std::runtime_error("{{classname}} property {{name}} item was not {{jsonType}}");
+              }
+              {{name}}.insert(std::make_pair(key, it->second));
+              {{/isRef}}
+              {{/isJson}}
+              {{/items}}
+           }
+           {{/isMapContainer}}
+           {{/isContainer}}
+           {{^isContainer}}
            {{#isJson}}
-	   {{name}}.push_back(itemJson);
+           {{name}} = json;
            {{/isJson}}
            {{^isJson}}
            {{#isRef}}
-	   {{name}}.push_back(new {{datatype}}(itemJson));
+           if ({{name}} == nullptr) {
+              {{name}} = new {{datatype}}(json);
+           } else {
+              {{name}}->copyFrom(json);
+           }
            {{/isRef}}
            {{^isRef}}
-           if (itemJson.get_kind() != Json::{{jsonType}}) {
-              throw std::runtime_error("{{classname}} property {{name}} item was not {{jsonType}}");
+           if (json.get_kind() != Json::{{jsonType}}) {
+              throw std::runtime_error("{{classname}} property {{name}} was not {{jsonType}}");
            }
-           {{name}}.push_back(itemJson.as<Json::{{jsonType}}_t>());
+           {{name}} = json.as<Json::{{jsonType}}_t>();
            {{/isRef}}
            {{/isJson}}
-           {{/items}}
+           {{/isContainer}}
 	}
-	{{/isContainer}}
-	{{^isContainer}}
-        {{#isJson}}
-	{{name}} = json;
-        {{/isJson}}
-        {{^isJson}}
-        {{#isRef}}
-	if ({{name}} == nullptr) {
-           {{name}} = new {{datatype}}(json);
-        } else {
-           {{name}}->copyFrom(json);
-        }
-        {{/isRef}}
-        {{^isRef}}
-        if (json.get_kind() != Json::{{jsonType}}) {
-           throw std::runtime_error("{{classname}} property {{name}} was not {{jsonType}}");
-        }
-        {{name}} = json.as<Json::{{jsonType}}_t>();
-        {{/isRef}}
-        {{/isJson}}
-	{{/isContainer}}
      }
    }
    {{/vars}}
@@ -205,6 +265,7 @@ Json {{classname}}::toJson() const {
    // {{name}}
    if ({{tester}}()) {
       {{#isContainer}}
+      {{^isMapContainer}}
       Json::array_t arr;
       for (unsigned int i = 0; i < {{name}}.size(); i++) {
          {{#items}}
@@ -228,6 +289,32 @@ Json {{classname}}::toJson() const {
          {{/items}}
       }
       info["{{name}}"] = Json{ std::move(arr) };
+      {{/isMapContainer}}
+      {{#isMapContainer}}
+      Json::object_t obj;
+      for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) {
+         {{#items}}
+	 {{fieldType}} item = it->second;
+         {{#isJson}}
+         obj.insert(std::make_pair(it->first, item));
+         {{/isJson}}
+         {{^isJson}}
+         {{#isRef}}
+         obj.insert(std::make_pair(it->first, item->toJson()));
+         {{/isRef}}
+         {{^isRef}}
+         {{#isString}}
+         obj.insert(std::make_pair(it->first, Json { std::move(item) }));
+         {{/isString}}
+         {{^isString}}
+         obj.insert(std::make_pair(it->first, Json { item }));
+         {{/isString}}
+         {{/isRef}}
+         {{/isJson}}
+         {{/items}}
+      }
+      info["{{name}}"] = Json{ std::move(obj) };
+      {{/isMapContainer}}
       {{/isContainer}}
       {{^isContainer}}
       {{#isJson}}
@@ -262,7 +349,7 @@ void {{classname}}::throwIfMissingRequiredFields() const {
   {{/required}}
   {{/vars}}
 }
-{{^validatorClass}}
+{{#hasValidators}}
 
 // --------------------------------------------------
 // validators
@@ -278,7 +365,7 @@ void {{classname}}::from{{validatorClass}}(const {{classname}}{{validatorClass}}
    {{/validatorVars}}
 }
 {{/validators}}
-{{/validatorClass}}
+{{/hasValidators}}
 
 // --------------------------------------------------
 // setters/getters/testers
@@ -316,9 +403,16 @@ bool {{classname}}::{{tester}}() const {
    {{/isContainer}}
    {{#isContainer}}
    {{{datatype}}} result;
+   {{^isMapContainer}}
    for (unsigned int i = 0; i < {{name}}.size(); i++) {
       result.push_back(*({{name}}[i]));
    }
+   {{/isMapContainer}}
+   {{#isMapContainer}}
+   for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) {
+      result.insert(std::make_pair(it->first, *(it->second)));
+   }
+   {{/isMapContainer}}
    return result;
    {{/isContainer}}
    {{/isRef}}
@@ -336,13 +430,27 @@ bool {{classname}}::{{tester}}() const {
    }
    {{/isContainer}}
    {{#isContainer}}
+   {{^isMapContainer}}
    { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
+   {{/isMapContainer}}
+   {{#isMapContainer}}
+   { for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) delete it->second; }
+   {{/isMapContainer}}
    {{name}}.clear();
-   for (unsigned int i = 0; i < {{name}}_.size(); i++) {
-      {{#items}}
-      {{name}}.push_back(new {{datatype}}({{name}}_[i]));
-      {{/items}}
-   }
+   {{^isMapContainer}}
+   { for (unsigned int i = 0; i < {{name}}_.size(); i++) {
+        {{#items}}
+        {{name}}.push_back(new {{datatype}}({{name}}_[i]));
+        {{/items}}
+   }}
+   {{/isMapContainer}}
+   {{#isMapContainer}}
+   { for(auto it = {{name}}_.begin(); it != {{name}}_.end(); it++) {
+        {{#items}}
+        {{name}}.insert(std::make_pair(it->first, new {{datatype}}(it->second)));
+        {{/items}}
+   }}
+   {{/isMapContainer}}
    {{/isContainer}}
    {{/isRef}}
    {{^isRef}}
