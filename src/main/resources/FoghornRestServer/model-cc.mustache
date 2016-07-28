@@ -111,7 +111,7 @@ void {{classname}}::mergeFrom(const {{classname}}& that) {
       }
       {{/isMapContainer}}
       {{#isMapContainer}}
-      for(auto thatIt = that.fields.begin(); thatIt != that.fields.end(); thatIt++) {
+      for(auto thatIt = that.{{name}}.begin(); thatIt != that.{{name}}.end(); thatIt++) {
          const std::string& key = thatIt->first;
          {{#items}}
          {{#isRef}}
@@ -214,10 +214,10 @@ void {{classname}}::mergeFrom(const Json& j) {
               }
               {{/isRef}}
               {{^isRef}}
-              if (itemJson.get_kind() != Json::{{jsonType}}) {
+              if (valueJson.get_kind() != Json::{{jsonType}}) {
                  throw std::runtime_error("{{classname}} property {{name}} item was not {{jsonType}}");
               }
-              {{name}}.insert(std::make_pair(key, it->second));
+              {{name}}.insert(std::make_pair(key, valueJson.as<Json::{{jsonType}}_t>()));
               {{/isRef}}
               {{/isJson}}
               {{/items}}
