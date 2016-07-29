@@ -44,12 +44,16 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
        public Boolean hasValidators;
        public List<Map<String,Object>> validators;
        public Boolean hasBarePtrs;
+       public Boolean hasTesterBooleans;
     }
     public static class FoghornCodegenOperation extends CodegenOperation {
        public String curlopMethod;
     }
     public static class FoghornCodegenProperty extends CodegenProperty {
        public String tester;
+       public String clearer;
+       public String mutableGetter;
+       public String mutableDatatype;
        public Boolean isJson;
        public Boolean isRef;
        public String jsonType;
@@ -189,6 +193,10 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
 	     if ((fvar.isRef == Boolean.TRUE) && (fvar.isNotContainer == Boolean.TRUE)) {
 	       fhcm.hasBarePtrs = true;
 	     }
+             // Add "tester booleans" if this model has properties with default values
+             if (fvar.defaultValue != null) {
+                fhcm.hasTesterBooleans = true;
+             }
 	  }
        }
        return objs;
@@ -370,11 +378,18 @@ public class FoghornrestserverGenerator extends DefaultCodegen implements Codege
             (p instanceof ArrayProperty) ||
             (p instanceof MapProperty)) {
 	   property.paramType = "const " + property.datatype + "&";
+
+	   if (!(p instanceof StringProperty)) {
+              property.mutableGetter = "getMutable" + getterAndSetterCapitalize(property.name);
+              property.mutableDatatype = property.fieldType +
+	         (property.fieldType.endsWith("*") ? "" : "&");
+	   }
 	} else {
            property.paramType = property.datatype;
         }
 
         property.tester = "has" + getterAndSetterCapitalize(property.name);
+        property.clearer = "clear" + getterAndSetterCapitalize(property.name);
         return property;
     }
 

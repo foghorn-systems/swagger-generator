@@ -53,33 +53,7 @@ void {{classname}}::nullPtrs() {
 
 void {{classname}}::clear() {
    {{#vars}}
-   {{#isContainer}}
-   {{#isRef}}
-   {{^isMapContainer}}
-   { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
-   {{/isMapContainer}}
-   {{#isMapContainer}}
-   { for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) delete it->second; }
-   {{/isMapContainer}}
-   {{/isRef}}
-   {{name}}.clear();
-   {{/isContainer}}
-   {{^isContainer}}
-   {{#isJson}}
-   {{name}} = Json {};
-   {{/isJson}}
-   {{^isJson}}
-   {{#isRef}}
-   if ({{name}} != nullptr) {
-      delete {{name}};
-      {{name}} = nullptr;
-   }
-   {{/isRef}}
-   {{^isRef}}
-   {{name}} = {{{defaultValue}}};
-   {{/isRef}}
-   {{/isJson}}
-   {{/isContainer}}
+   {{clearer}}();
    {{/vars}}
 }
 
@@ -94,7 +68,6 @@ void {{classname}}::copyFrom(const {{classname}}& that) {
 
 void {{classname}}::mergeFrom(const {{classname}}& that) {
    {{#vars}}
-
    // {{name}}
    if (that.{{tester}}()) {
       {{#isContainer}}
@@ -139,6 +112,9 @@ void {{classname}}::mergeFrom(const {{classname}}& that) {
       {{/isRef}}
       {{^isRef}}
       {{name}} = that.{{name}};
+      {{^isJson}}
+      {{tester}}_ = true;
+      {{/isJson}}
       {{/isRef}}
       {{/isContainer}}
    }
@@ -159,8 +135,8 @@ void {{classname}}::mergeFrom(const Json& j) {
       throw std::runtime_error("{{classname}} body was not an object");
    }
    const Json::object_t& jobj = j.as<Json::object_t>();
-   {{#vars}}
 
+   {{#vars}}
    // {{name}}
    { auto iterator = jobj.find("{{name}}");
      if (iterator != jobj.end()) {
@@ -241,6 +217,7 @@ void {{classname}}::mergeFrom(const Json& j) {
               throw std::runtime_error("{{classname}} property {{name}} was not {{jsonType}}");
            }
            {{name}} = json.as<Json::{{jsonType}}_t>();
+           {{tester}}_ = true;
            {{/isRef}}
            {{/isJson}}
            {{/isContainer}}
@@ -260,8 +237,8 @@ std::string {{classname}}::toString() const {
 
 Json {{classname}}::toJson() const {
    Json::object_t info;
-   {{#vars}}
 
+   {{#vars}}
    // {{name}}
    if ({{tester}}()) {
       {{#isContainer}}
@@ -386,12 +363,7 @@ bool {{classname}}::{{tester}}() const {
    return {{name}} != nullptr;
    {{/isRef}}
    {{^isRef}}
-   {{#isString}}
-   return {{name}}.compare({{{defaultValue}}});
-   {{/isString}}
-   {{^isString}}
-   return {{name}} != {{{defaultValue}}};
-   {{/isString}}
+   return {{tester}}_;
    {{/isRef}}
    {{/isJson}}
    {{/isContainer}}
@@ -455,9 +427,56 @@ bool {{classname}}::{{tester}}() const {
    {{/isRef}}
    {{^isRef}}
    {{name}} = {{name}}_;
+   {{^isContainer}}
+   {{^isJson}}
+   {{tester}}_ = true;
+   {{/isJson}}
+   {{/isContainer}}
    {{/isRef}}
    return *this;
 }
+void {{classname}}::{{clearer}}() {
+   {{#isContainer}}
+   {{#isRef}}
+   {{^isMapContainer}}
+   { for (unsigned int i = 0; i < {{name}}.size(); i++) delete {{name}}[i]; }
+   {{/isMapContainer}}
+   {{#isMapContainer}}
+   { for(auto it = {{name}}.begin(); it != {{name}}.end(); it++) delete it->second; }
+   {{/isMapContainer}}
+   {{/isRef}}
+   {{name}}.clear();
+   {{/isContainer}}
+   {{^isContainer}}
+   {{#isJson}}
+   {{name}} = Json {};
+   {{/isJson}}
+   {{^isJson}}
+   {{#isRef}}
+   if ({{name}} != nullptr) {
+      delete {{name}};
+      {{name}} = nullptr;
+   }
+   {{/isRef}}
+   {{^isRef}}
+   {{name}} = {{{defaultValue}}};
+   {{tester}}_ = false;
+   {{/isRef}}
+   {{/isJson}}
+   {{/isContainer}}
+}
+{{#mutableGetter}}
+{{{mutableDatatype}}} {{classname}}::{{mutableGetter}}() {
+   {{#isRef}}
+   {{^isContainer}}
+   if ({{name}} == nullptr) {
+      {{name}} = new {{{datatype}}}();
+   }
+   {{/isContainer}}
+   {{/isRef}}
+   return {{name}};
+}
+{{/mutableGetter}}
 {{/vars}}
 
 {{/model}}

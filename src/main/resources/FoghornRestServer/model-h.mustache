@@ -58,12 +58,28 @@ class {{classname}} {
    bool {{tester}}() const;
    {{{datatype}}} {{getter}}() const;
    {{classname}}& {{setter}}({{{paramType}}} {{name}});
+   void {{clearer}}();
+   {{#mutableGetter}}
+   {{{mutableDatatype}}} {{mutableGetter}}();
+   {{/mutableGetter}}
 
    {{/vars}}
   private:
    {{#vars}}
    {{{fieldType}}} {{name}};
    {{/vars}}
+   {{#hasTesterBooleans}}
+
+   {{#vars}}
+   {{^isContainer}}
+   {{^isRef}}
+   {{^isJson}}
+   bool {{tester}}_;
+   {{/isJson}}
+   {{/isRef}}
+   {{/isContainer}}
+   {{/vars}}
+   {{/hasTesterBooleans}}
    {{#hasBarePtrs}}
 
    void nullPtrs();
